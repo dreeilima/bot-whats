@@ -1,60 +1,91 @@
-# Pixzinho Bot
+# Bot WhatsApp - Gestão Financeira
 
-![Banner ou Logo do Projeto](misc/banner.png)
-
-O **Pixzinho Bot** é um assistente virtual financeiro robusto e gratuito, desenvolvido para ajudar os usuários a gerenciar suas finanças pessoais, interagindo através do WhatsApp e utilizando a tecnologia de processamento de linguagem natural do GPT.
-
-## Índice
-
-- [Visão Geral](#visão-geral)
-- [Funcionalidades](#funcionalidades)
-- [Instalação](#instalação)
-- [Como Contribuir](#como-contribuir)
-- [Licença](#licença)
-- [Equipe e Reconhecimentos](#equipe-e-reconhecimentos)
-
-## Visão Geral
-
-No cenário financeiro atual, a gestão adequada das finanças pessoais é mais importante do que nunca. **Pixzinho Bot** foi criado com o objetivo de ser um companheiro financeiro, sempre disponível no seu WhatsApp para ajudar em suas necessidades financeiras.
+Bot de WhatsApp para gestão financeira pessoal integrado com PIX.
 
 ## Funcionalidades
 
-- **Gestão de Contas**: Cadastre e monitore suas contas diretamente através do bot.
-- **Dicas Financeiras**: Receba dicas personalizadas para otimizar seus gastos e investimentos.
-- **Alertas e Lembretes**: Seja notificado sobre datas de vencimento, metas financeiras e outros.
-- **Interatividade Avançada**: Utilizando GPT, o bot entende e responde de forma natural.
+- 💰 Gestão de contas e transações
+- 📊 Categorização de despesas
+- 🎯 Metas financeiras
+- ⏰ Lembretes de contas
+- 📈 Relatórios financeiros
+- 💸 Integração com PIX
+
+## Tecnologias
+
+- Python 3.11
+- FastAPI
+- SQLModel
+- Docker
+- Railway Deploy
 
 ## Instalação
 
-1. Clone este repositório:
-```
-git clone https://github.com/gustavosett/pixzinho-whatsapp-bot.git
-```
+1. Clone o repositório:
 
-2. Navegue até o diretório do projeto:
-```
-cd pixzinho-whatsapp-bot
+```bash
+git clone https://github.com/dreeilima/bot-whats.git
+cd bot-whats
 ```
 
-3. Siga as [instruções detalhadas](#TODO) para configurar as variáveis de ambiente, instalar dependências e inicializar o bot.
+2. Instale as dependências:
 
-## Como Contribuir
+```bash
+pip install -r requirements.txt
+```
 
-Contribuições são muito bem-vindas! Aqui estão algumas maneiras de contribuir:
+3. Configure o arquivo .env:
 
-1. **Proponha Novas Funcionalidades**: Se você tem uma ideia de como melhorar o bot, abra uma issue!
-2. **Reporte Bugs**: Encontrou um problema? Reporte na seção de issues.
-3. **Melhore a Documentação**: Pode ser no README, ou em qualquer outra parte do projeto.
-4. **Submeta Pull Requests**: Melhorias de código, correções de bugs, e novas funcionalidades são muito bem-vindas.
+```bash
+cp .env.example .env
+# Edite o arquivo .env com suas configurações
+```
 
-Por favor, leia o [guia de contribuição](LINK_PARA_GUIA_DE_CONTRIBUIÇÃO) para informações detalhadas sobre como contribuir com o projeto.
+4. Execute o bot:
+
+```bash
+python setup.py
+```
+
+## Comandos WhatsApp
+
+📱 **Comandos Disponíveis:**
+
+💰 **Gestão Financeira:**
+
+- `/saldo` - Ver saldo de todas as contas
+- `/conta [nome]` - Informações da conta
+- `/extrato` - Ver extrato dos últimos 7 dias
+- `/relatorio` - Relatório financeiro completo
+
+💸 **Transações:**
+
+- `/despesa valor descrição` - Registrar despesa
+- `/receita valor descrição` - Registrar receita
+- `/categoria listar` - Ver categorias
+
+📋 **Contas e Metas:**
+
+- `/contas` - Ver contas pendentes
+- `/meta criar nome valor data` - Criar meta
+- `/meta listar` - Ver metas
+
+⏰ **Lembretes:**
+
+- `/lembrete contas` - Lembrar contas
+- `/lembrete meta nome` - Lembrar meta
+- `/lembrete saldo` - Lembrar saldo
+
+## Deploy
+
+```bash
+# Usando Docker
+docker-compose up -d
+
+# Usando Railway
+railway up
+```
 
 ## Licença
 
-Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE.md](LICENSE.md) para detalhes.
-
-## Equipe e Reconhecimentos
-
-- **Gustavo** - Fundador e Desenvolvedor Principal - [GitHub](https://github.com/gustavosett/)
-
-Agradecimentos especiais para todos os [contribuidores](#TODO) que ajudaram a dar vida a este projeto!
+MIT
