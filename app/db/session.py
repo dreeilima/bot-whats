@@ -7,7 +7,8 @@ author: github.com/gustavosett
 
 from contextlib import contextmanager
 from sqlalchemy import create_engine
-from sqlmodel import Session, SQLModel
+from sqlalchemy.orm import sessionmaker, Session
+from sqlmodel import SQLModel
 from sqlalchemy_utils import database_exists, create_database
 from decouple import config
 import urllib.parse
