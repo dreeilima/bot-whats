@@ -9,8 +9,10 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
+        value: "postgres://postgres:Drey1992.@aws-0-us-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
       - key: JWT_SECRET_KEY
         sync: false
       - key: WHATSAPP_NUMBER
         sync: false
     autoDeploy: true
+    healthCheckPath: /health

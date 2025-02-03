@@ -46,3 +46,7 @@ def save_openapi_json():
     # salva arquivo
     with open("openapi.json", "w") as file:
         json.dump(openapi_data, file)
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}

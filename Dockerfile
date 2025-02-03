@@ -4,10 +4,13 @@ FROM python:3.11-slim
 # Define o diretório de trabalho no container
 WORKDIR /app
 
-# Instala apenas o necessário
+# Instala dependências do sistema incluindo SSL
 RUN apt-get update && apt-get install -y \
     chromium \
     chromium-driver \
+    libpq-dev \
+    gcc \
+    python3-dev \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
