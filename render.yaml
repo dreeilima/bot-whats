@@ -1,9 +1,16 @@
 services:
   - type: web
-    name: pixzinho-bot
-    env: python
-    buildCommand: pip install -r requirements.txt
+    name: bot-whats
+    env: docker
+    region: singapore # Região mais barata
+    plan: free
+    buildCommand: docker build -t bot-whats .
     startCommand: python setup.py
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: WHATSAPP_NUMBER
+        sync: false
+    autoDeploy: true

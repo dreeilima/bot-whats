@@ -1,6 +1,8 @@
 import pywhatkit
 from datetime import datetime, timedelta
 import random
+import qrcode
+import os
 from typing import List
 from sqlmodel import Session
 from app.db.models import User, Account, Transaction, Bill, Goal, Category
@@ -8,6 +10,8 @@ from functools import lru_cache
 
 class WhatsAppService:
     def __init__(self):
+        self.bot_number = os.getenv("WHATSAPP_NUMBER")
+        self.is_authenticated = False
         # Configuração inicial do pywhatkit
         pywhatkit.sendwhatmsg_instantly
         self.commands = {
@@ -24,6 +28,33 @@ class WhatsAppService:
             "/categoria": self.manage_categories,
             "/lembrete": self.set_reminder
         }
+
+    async def initialize(self):
+        """Inicializa o serviço e gera QR code para autenticação"""
+        try:
+            # Gera QR Code para autenticação
+            qr = qrcode.QRCode(version=1, box_size=10, border=5)
+            qr.add_data(f"https://wa.me/{self.bot_number}")
+            qr.make(fit=True)
+            
+            # Salva o QR Code
+            img = qr.make_image(fill_color="black", back_color="white")
+            img.save("whatsapp_qr.png")
+            
+            print(f"""
+            ============= INSTRUÇÕES =============
+            1. Abra o WhatsApp no seu celular
+            2. Escaneie o QR Code gerado em 'whatsapp_qr.png'
+            3. Envie uma mensagem com /ajuda para o número: {self.bot_number}
+            ======================================
+            """)
+            
+            self.is_authenticated = True
+            return True
+            
+        except Exception as e:
+            print(f"Erro ao inicializar WhatsApp: {str(e)}")
+            return False
 
     def send_message(self, to_number: str, message: str):
         """
