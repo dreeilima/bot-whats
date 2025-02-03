@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  bot:
+    build: .
+    container_name: pixzinho-bot
+    restart: always
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - WHATSAPP_NUMBER=${WHATSAPP_NUMBER}
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "8000:8000"

@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlmodel
+python-decouple
+pywhatkit
+qrcode
+apscheduler
+python-jose[cryptography]
+passlib[bcrypt]
+psycopg2-binary
+python-multipart 
