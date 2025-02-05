@@ -12,6 +12,10 @@ logger = logging.getLogger(__name__)
 
 def main():
     try:
+        # Aguarda alguns segundos para o banco estar pronto
+        logger.info("Aguardando banco de dados inicializar...")
+        time.sleep(10)
+        
         # Inicializa o banco
         initialize_db()
         run_migrations()

@@ -19,6 +19,11 @@ services:
         generateValue: true
       - key: ENVIRONMENT
         value: production
+    healthCheckPath: /health
+    autoDeploy: false
+    numInstances: 1
+    region: oregon
+    plan: free
 
 databases:
   - name: pixzinho-db
