@@ -6,12 +6,13 @@ import threading
 import uvicorn
 from app.main import app
 from test_db_clean import clean_database
+import json
 
 # Configura logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-BASE_URL = "http://localhost:10000"
+BASE_URL = "https://bot-whats-9onh.onrender.com"
 
 def run_server():
     """Inicia o servidor em uma thread separada"""
@@ -47,9 +48,9 @@ class APITester:
     def test_register_user(self):
         """Testa registro de usuário"""
         data = {
-            "email": "test@example.com",
-            "password": "test123",
-            "full_name": "Test User"
+            "email": "teste@exemplo.com",
+            "password": "Senha123!",
+            "name": "Usuário Teste"
         }
         response = requests.post(f"{BASE_URL}/users/", json=data)
         assert response.status_code in [200, 400], "Registro falhou"
@@ -58,10 +59,10 @@ class APITester:
     def test_login(self):
         """Testa login"""
         data = {
-            "username": "test@example.com",
-            "password": "test123"
+            "username": "teste@exemplo.com",
+            "password": "Senha123!"
         }
-        response = requests.post(f"{BASE_URL}/login", data=data)
+        response = requests.post(f"{BASE_URL}/auth/login", json=data)
         assert response.status_code == 200, "Login falhou"
         self.token = response.json()["access_token"]
         logger.info("✅ Login OK")
@@ -70,10 +71,8 @@ class APITester:
         """Testa criação de conta"""
         headers = {"Authorization": f"Bearer {self.token}"}
         data = {
-            "name": "Conta Teste",
-            "balance": 1000.0,
-            "type": "checking",
-            "description": "Conta para testes"
+            "name": "Conta Principal",
+            "balance": 1000.00
         }
         response = requests.post(f"{BASE_URL}/finance/accounts/", json=data, headers=headers)
         assert response.status_code == 200, "Criação de conta falhou"
@@ -84,10 +83,8 @@ class APITester:
         """Testa criação de categoria"""
         headers = {"Authorization": f"Bearer {self.token}"}
         data = {
-            "name": f"Salário {datetime.now().timestamp()}",  # Nome único
-            "type": "income",
-            "icon": "💵",
-            "description": "Renda mensal"
+            "name": "Alimentação",
+            "type": "expense"
         }
         response = requests.post(f"{BASE_URL}/finance/categories/", json=data, headers=headers)
         if response.status_code != 200:
@@ -100,12 +97,11 @@ class APITester:
         """Testa criação de transação"""
         headers = {"Authorization": f"Bearer {self.token}"}
         data = {
-            "amount": 100.0,
-            "type": "income",
-            "description": "Teste",
+            "amount": 50.00,
+            "type": "expense",
+            "description": "Almoço",
             "account_id": self.account_id,
-            "category_id": self.category_id,
-            "date": datetime.now().isoformat()
+            "category_id": self.category_id
         }
         response = requests.post(f"{BASE_URL}/finance/transactions/", json=data, headers=headers)
         if response.status_code != 200:
@@ -141,6 +137,69 @@ class APITester:
             logger.error(f"Dados enviados: {data}")
         assert response.status_code == 200, "Criação de meta falhou"
         logger.info("✅ Criação de meta OK")
+
+def test_api():
+    # 1. Registro
+    register_data = {
+        "email": "teste@exemplo.com",
+        "password": "Senha123!",
+        "name": "Usuário Teste"
+    }
+    
+    response = requests.post(f"{BASE_URL}/users/", json=register_data)
+    logger.info(f"Registro: {response.status_code}")
+    
+    # 2. Login
+    login_data = {
+        "username": "teste@exemplo.com",
+        "password": "Senha123!"
+    }
+    
+    response = requests.post(f"{BASE_URL}/auth/login", json=login_data)
+    logger.info(f"Login: {response.status_code}")
+    
+    if response.status_code == 200:
+        token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        # 3. Criar categoria
+        category_data = {
+            "name": "Alimentação",
+            "type": "expense"
+        }
+        response = requests.post(
+            f"{BASE_URL}/finance/categories/",
+            headers=headers,
+            json=category_data
+        )
+        logger.info(f"Criar categoria: {response.status_code}")
+        
+        # 4. Criar conta
+        account_data = {
+            "name": "Conta Principal",
+            "balance": 1000.00
+        }
+        response = requests.post(
+            f"{BASE_URL}/finance/accounts/",
+            headers=headers,
+            json=account_data
+        )
+        logger.info(f"Criar conta: {response.status_code}")
+        
+        # 5. Criar transação
+        transaction_data = {
+            "amount": 50.00,
+            "type": "expense",
+            "description": "Almoço",
+            "account_id": 1,
+            "category_id": 1
+        }
+        response = requests.post(
+            f"{BASE_URL}/finance/transactions/",
+            headers=headers,
+            json=transaction_data
+        )
+        logger.info(f"Criar transação: {response.status_code}")
 
 def run_all_tests():
     """Executa todos os testes em sequência"""
@@ -201,5 +260,6 @@ if __name__ == "__main__":
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
+    test_api()
     success = run_all_tests()
     exit(0 if success else 1) 

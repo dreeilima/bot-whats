@@ -12,11 +12,7 @@ from .routes import (
     user_router,
     auth_router,
     finance_router,
-    whatsapp_router,
-    whatsapp,
-    users,
-    accounts,
-    transactions
+    whatsapp_router
 )
 
 from fastapi.responses import RedirectResponse
@@ -48,9 +44,6 @@ app.include_router(auth_router, prefix="/auth")
 app.include_router(user_router, prefix="/users")
 app.include_router(finance_router, prefix="/finance")
 app.include_router(whatsapp_router, prefix="/whatsapp")
-app.include_router(whatsapp.router, prefix="/whatsapp")
-app.include_router(accounts.router, prefix="/accounts")
-app.include_router(transactions.router, prefix="/transactions")
 
 @app.get("/", include_in_schema=False)
 async def redirect():

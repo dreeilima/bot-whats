@@ -3,3 +3,8 @@ Time: 15:3
 Phone Number: +5511953238980
 Message: Ola, boa tarde ;)
 --------------------
+Date: 5/2/2025
+Time: 14:52
+Phone Number: +5511953238980#seunúmeroatual
+Message: 🤖 Bot iniciado com sucesso! Digite "oi" para começar.
+--------------------
