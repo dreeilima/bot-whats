@@ -14,9 +14,24 @@ import urllib.parse
 import logging
 from sqlalchemy.sql import text
 import time
+import os
 
 # Ajusta a URL do banco para usar SSL
 DATABASE_URL = config('DATABASE_URL')
+
+# Se estiver em produção, usa uma URL diferente
+if os.getenv('ENVIRONMENT') == 'production':
+    # Usa o formato pooler do Supabase para produção
+    parsed = urllib.parse.urlparse(DATABASE_URL)
+    if parsed.scheme == 'postgres':
+        # Ajusta para usar o pooler
+        netloc = parsed.netloc.replace('db.', 'db-pooler.')
+        DATABASE_URL = parsed._replace(
+            netloc=netloc,
+            query='pgbouncer=true&connection_limit=20&pool_timeout=20'
+        ).geturl()
+
+# Adiciona SSL se necessário
 if 'sslmode' not in DATABASE_URL:
     parsed = urllib.parse.urlparse(DATABASE_URL)
     if parsed.scheme == 'postgres':
@@ -25,6 +40,8 @@ if 'sslmode' not in DATABASE_URL:
         DATABASE_URL = parsed._replace(
             query=urllib.parse.urlencode(params)
         ).geturl()
+
+logging.info(f"Usando URL do banco: {DATABASE_URL}")
 
 # Cria engine com timeout maior
 engine = create_engine(
