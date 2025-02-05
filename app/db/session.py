@@ -16,9 +16,11 @@ from sqlalchemy.sql import text
 import time
 import os
 
+# Configura o logger
+logger = logging.getLogger(__name__)
+
 def log_environment():
     """Loga informações do ambiente"""
-    logger = logging.getLogger(__name__)
     logger.info("="*50)
     logger.info("Informações do ambiente:")
     logger.info(f"ENVIRONMENT: {os.getenv('ENVIRONMENT', 'não definido')}")

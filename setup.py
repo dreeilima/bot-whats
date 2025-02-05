@@ -7,7 +7,11 @@ from app.db.migrations import run_migrations
 from app.services.whatsapp import whatsapp_service
 import time
 
-logging.basicConfig(level=logging.INFO)
+# Configura logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 def main():
@@ -27,6 +31,8 @@ def main():
         # Configura host e porta
         host = os.getenv("HOST", "0.0.0.0")
         port = int(os.getenv("PORT", "10000"))
+        
+        logger.info(f"Iniciando servidor em {host}:{port}")
         
         # Inicia o servidor
         uvicorn.run(
