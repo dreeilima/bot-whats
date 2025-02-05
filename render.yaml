@@ -16,6 +16,9 @@ services:
       - key: WHATSAPP_NUMBER
         sync: false
         value: "5511953238980"
+      - key: WHATSAPP_API_KEY
+        sync: false
+        value: "seu_token_aqui"
       - key: PORT
         sync: false
         value: "10000"

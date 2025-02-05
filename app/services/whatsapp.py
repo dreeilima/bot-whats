@@ -1,19 +1,18 @@
-import pywhatkit
-from datetime import datetime, timedelta
-import random
-import qrcode
+import requests
+import json
+import logging
 import os
-from typing import List
+from typing import List, Optional
 from sqlmodel import Session
 from app.db.models import User, Account, Transaction, Bill, Goal, Category
 from functools import lru_cache
 
 class WhatsAppService:
     def __init__(self):
-        self.bot_number = os.getenv("WHATSAPP_NUMBER")
-        self.is_authenticated = False
-        # Configuração inicial do pywhatkit
-        pywhatkit.sendwhatmsg_instantly
+        self.api_key = os.getenv("WHATSAPP_API_KEY")
+        self.phone_number = os.getenv("WHATSAPP_NUMBER")
+        self.base_url = "https://graph.facebook.com/v17.0"
+        self.is_initialized = False
         self.commands = {
             "/saldo": self.check_balance,
             "/conta": self.account_info,
@@ -30,81 +29,62 @@ class WhatsAppService:
         }
 
     async def initialize(self):
-        """Inicializa o serviço e gera QR code para autenticação"""
+        """Inicializa o serviço"""
         try:
-            # Gera QR Code para autenticação
-            qr = qrcode.QRCode(version=1, box_size=10, border=5)
-            qr.add_data(f"https://wa.me/{self.bot_number}")
-            qr.make(fit=True)
-            
-            # Salva o QR Code
-            img = qr.make_image(fill_color="black", back_color="white")
-            img.save("whatsapp_qr.png")
-            
-            print(f"""
-            ============= INSTRUÇÕES =============
-            1. Abra o WhatsApp no seu celular
-            2. Escaneie o QR Code gerado em 'whatsapp_qr.png'
-            3. Envie uma mensagem com /ajuda para o número: {self.bot_number}
-            ======================================
-            """)
-            
-            self.is_authenticated = True
-            return True
-            
-        except Exception as e:
-            print(f"Erro ao inicializar WhatsApp: {str(e)}")
-            return False
-
-    def send_message(self, to_number: str, message: str):
-        """
-        Envia mensagem para um número específico
-        
-        :param to_number: Número de telefone no formato: 5511999999999
-        :param message: Mensagem a ser enviada
-        """
-        try:
-            # Formata o número para o padrão internacional
-            if not to_number.startswith("+"):
-                if not to_number.startswith("55"):
-                    to_number = "55" + to_number
-                to_number = "+" + to_number
-            
-            # Remove caracteres não numéricos exceto o +
-            to_number = "+" + ''.join(filter(str.isdigit, to_number))
-            
-            # Envia a mensagem instantaneamente
-            pywhatkit.sendwhatmsg_instantly(
-                to_number, 
-                message,
-                wait_time=10,  # Espera 10 segundos antes de enviar
-                tab_close=True  # Fecha a aba após enviar
-            )
+            self.is_initialized = True
+            logging.info("WhatsApp service initialized")
             return True
         except Exception as e:
-            print(f"Erro ao enviar mensagem: {str(e)}")
+            logging.error(f"Error initializing WhatsApp: {str(e)}")
             return False
 
-    async def process_command(self, message: str, user: User, db: Session):
-        """Processa comandos recebidos via WhatsApp"""
+    async def send_message(self, to: str, message: str) -> bool:
+        """Envia mensagem via API do WhatsApp Business"""
         try:
-            if not message:
-                return "Mensagem vazia. Digite /ajuda para ver os comandos disponíveis."
+            # Remove o + do número se existir
+            to = to.replace("+", "")
             
-            parts = message.split()
-            if not parts:
-                return "Comando inválido. Digite /ajuda para ver os comandos disponíveis."
+            # Endpoint da API
+            url = f"{self.base_url}/{self.phone_number}/messages"
             
-            command = parts[0].lower()
-            if command not in self.commands:
-                return f"Comando '{command}' não reconhecido. Digite /ajuda para ver os comandos disponíveis."
+            # Headers
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
             
-            return await self.commands[command](message, user, db)
-        
+            # Payload
+            data = {
+                "messaging_product": "whatsapp",
+                "to": to,
+                "type": "text",
+                "text": {"body": message}
+            }
+            
+            # Faz a requisição
+            response = requests.post(url, headers=headers, json=data)
+            
+            if response.status_code == 200:
+                logging.info(f"Message sent to {to}")
+                return True
+            else:
+                logging.error(f"Error sending message: {response.text}")
+                return False
+                
         except Exception as e:
-            # Log do erro
-            print(f"Erro ao processar comando: {str(e)}")
-            return "Ocorreu um erro ao processar seu comando. Por favor, tente novamente."
+            logging.error(f"Error in send_message: {str(e)}")
+            return False
+
+    async def process_command(self, text: str, user: User, db: Session) -> str:
+        """Processa comandos recebidos"""
+        try:
+            command = text.lower().split()[0]
+            if command in self.commands:
+                return await self.commands[command](text, user, db)
+            return "Comando não reconhecido. Use /ajuda para ver os comandos disponíveis."
+        except Exception as e:
+            logging.error(f"Error processing command: {str(e)}")
+            return "Erro ao processar comando. Tente novamente."
 
     async def check_balance(self, message: str, user: User, db: Session):
         """Retorna saldo total das contas"""
