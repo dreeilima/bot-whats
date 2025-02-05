@@ -8,12 +8,24 @@ import json
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .db import session
-from .routes import routers
+from .routes import (
+    user_router,
+    auth_router,
+    finance_router,
+    whatsapp_router,
+    whatsapp,
+    users,
+    accounts,
+    transactions
+)
 
 from fastapi.responses import RedirectResponse
 
 
-app = FastAPI()
+app = FastAPI(
+    title="Pixzinho API",
+    description="API para gerenciamento financeiro via WhatsApp"
+)
 # Atualiza/cria os modelos sqlalchemy
 session.initialize_db()
 
@@ -32,8 +44,13 @@ app.add_middleware(
 )
 
 # adiciona as rotas a engine
-for route in routers:
-    app.include_router(route)
+app.include_router(auth_router, prefix="/auth")
+app.include_router(user_router, prefix="/users")
+app.include_router(finance_router, prefix="/finance")
+app.include_router(whatsapp_router, prefix="/whatsapp")
+app.include_router(whatsapp.router, prefix="/whatsapp")
+app.include_router(accounts.router, prefix="/accounts")
+app.include_router(transactions.router, prefix="/transactions")
 
 @app.get("/", include_in_schema=False)
 async def redirect():
@@ -50,3 +67,7 @@ def save_openapi_json():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+@app.get("/")
+async def root():
+    return {"message": "Bem-vindo à API do Pixzinho!"}
