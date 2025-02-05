@@ -16,8 +16,30 @@ from sqlalchemy.sql import text
 import time
 import os
 
+def log_environment():
+    """Loga informações do ambiente"""
+    logger = logging.getLogger(__name__)
+    logger.info("="*50)
+    logger.info("Informações do ambiente:")
+    logger.info(f"ENVIRONMENT: {os.getenv('ENVIRONMENT', 'não definido')}")
+    logger.info(f"HOST: {os.getenv('HOST', 'não definido')}")
+    logger.info(f"PORT: {os.getenv('PORT', 'não definido')}")
+    logger.info("="*50)
+
+# No início do arquivo, após os imports
+log_environment()
+logger.info("URL original do banco: %s", config('DATABASE_URL'))
+
 # Ajusta a URL do banco para usar SSL
 DATABASE_URL = config('DATABASE_URL')
+
+# Força usar o pooler em vez do db direto
+if 'db.xkepzvrnevgeifexcizr.supabase.co' in DATABASE_URL:
+    logger.warning("Convertendo URL do banco para usar pooler...")
+    DATABASE_URL = DATABASE_URL.replace(
+        'db.xkepzvrnevgeifexcizr.supabase.co:5432',
+        'aws-0-us-west-1.pooler.supabase.com:6543'
+    )
 
 # Adiciona SSL se necessário
 if 'sslmode' not in DATABASE_URL:
@@ -29,7 +51,7 @@ if 'sslmode' not in DATABASE_URL:
             query=urllib.parse.urlencode(params)
         ).geturl()
 
-logging.info(f"Usando URL do banco: {DATABASE_URL}")
+logger.info("URL final do banco: %s", DATABASE_URL)
 
 # Cria engine com configurações para pooler
 engine = create_engine(

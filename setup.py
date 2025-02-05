@@ -12,9 +12,13 @@ logger = logging.getLogger(__name__)
 
 def main():
     try:
-        # Aguarda alguns segundos para o banco estar pronto
-        logger.info("Aguardando banco de dados inicializar...")
-        time.sleep(10)
+        # Aguarda mais tempo para o banco estar pronto em produção
+        if os.getenv('ENVIRONMENT') == 'production':
+            logger.info("Ambiente de produção detectado, aguardando 30s...")
+            time.sleep(30)
+        else:
+            logger.info("Aguardando banco de dados inicializar...")
+            time.sleep(10)
         
         # Inicializa o banco
         initialize_db()
