@@ -2,6 +2,7 @@ from app.main import app
 from app.db.session import initialize_db
 from app.db.migrations import run_migrations
 from app.services.whatsapp import whatsapp_service
+import os
 
 async def setup():
     # Inicializa banco
@@ -15,8 +16,8 @@ async def setup():
     import uvicorn
     uvicorn.run(
         "app.main:app",
-        host="127.0.0.1",
-        port=8000,
+        host="0.0.0.0",  # Permite acesso externo
+        port=int(os.environ.get("PORT", 8000)),
         reload=True
     )
 

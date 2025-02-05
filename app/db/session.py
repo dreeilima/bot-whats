@@ -9,18 +9,14 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlmodel import SQLModel
-from sqlalchemy_utils import database_exists, create_database
 from decouple import config
 import urllib.parse
-
-from app.services.config import DATABASE_URL, FORCE_DB_INIT
 
 # Ajusta a URL do banco para usar SSL
 DATABASE_URL = config('DATABASE_URL')
 if 'sslmode' not in DATABASE_URL:
     parsed = urllib.parse.urlparse(DATABASE_URL)
     if parsed.scheme == 'postgres':
-        # Adiciona sslmode se não existir
         params = dict(urllib.parse.parse_qsl(parsed.query))
         params['sslmode'] = 'require'
         DATABASE_URL = parsed._replace(
@@ -51,16 +47,15 @@ def get_session():
 
 def initialize_db():
     """Atualiza/cria modelos"""
-    from app.db.models import User, Account, Transaction, Bill  # Importa todos os modelos
+    from app.db.models import User, Account, Transaction, Bill
     
-    # Cria/atualiza todas as tabelas
-    SQLModel.metadata.create_all(engine)
+    try:
+        # Apenas cria as tabelas se não existirem
+        SQLModel.metadata.create_all(engine)
+    except Exception as e:
+        print(f"Erro ao criar tabelas: {str(e)}")
 
-# Dependencia
-if not database_exists(engine.url):
-    create_database(engine.url)
-
-# Sempre inicializa/atualiza o banco
+# Inicializa o banco
 initialize_db()
 
 def get_db():
