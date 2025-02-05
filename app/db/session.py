@@ -12,6 +12,7 @@ from sqlmodel import SQLModel
 from decouple import config
 import urllib.parse
 import logging
+from sqlalchemy.sql import text
 
 # Ajusta a URL do banco para usar SSL
 DATABASE_URL = config('DATABASE_URL')
@@ -51,6 +52,11 @@ def initialize_db():
     from app.db.models import User, Category, Account, Transaction, Bill, Goal
     
     try:
+        # Testa conexão primeiro
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+            logging.info("Conexão com banco estabelecida com sucesso")
+            
         # Cria as tabelas em ordem específica
         tables = [
             User.__table__,
@@ -67,7 +73,10 @@ def initialize_db():
                 table.create(engine)
                 logging.info(f"Tabela {table.name} criada com sucesso")
             except Exception as e:
-                logging.warning(f"Aviso ao criar {table.name}: {str(e)}")
+                if "already exists" not in str(e):
+                    logging.error(f"Erro ao criar {table.name}: {str(e)}")
+                    raise e
+                logging.info(f"Tabela {table.name} já existe")
                 
         # Executa migrações após criar as tabelas
         from app.db.migrations import run_migrations
@@ -75,8 +84,8 @@ def initialize_db():
                 
         logging.info("Banco de dados inicializado com sucesso!")
     except Exception as e:
-        logging.warning(f"Aviso: Erro ao criar tabelas (pode ser ignorado se já existirem): {str(e)}")
-        pass
+        logging.error(f"Erro ao inicializar banco: {str(e)}")
+        raise e
 
 # Inicializa o banco
 initialize_db()

@@ -1,31 +1,27 @@
 services:
   - type: web
-    name: bot-whats
-    env: docker
-    region: singapore
-    plan: free
-    buildCommand: docker build -t bot-whats .
+    name: pixzinho-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
     startCommand: python setup.py
     envVars:
       - key: DATABASE_URL
-        sync: false
-        value: "postgresql://postgres.xkepzvrnevgeifexcizr:Drey1992.@aws-0-us-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
-      - key: JWT_SECRET_KEY
-        sync: false
-        value: "5VkIR4wdaoZUzk1004AHE7d8Qd9JtK/+UvDmuWrvbuU="
-      - key: WHATSAPP_NUMBER
-        sync: false
-        value: "5511953238980"
-      - key: WHATSAPP_API_KEY
-        sync: false
-        value: "seu_token_aqui"
+        fromDatabase:
+          name: pixzinho-db
+          property: connectionString
+      - key: PYTHON_VERSION
+        value: 3.11.9
       - key: PORT
-        sync: false
-        value: "10000"
-      - key: IP
-        sync: false
-        value: "0.0.0.0"
-    autoDeploy: true
-    healthCheckPath: /health
-    initialDeployHook: sleep 10 # Aguarda 10s antes de verificar health
-    healthCheckRetries: 3
+        value: 10000
+      - key: HOST
+        value: 0.0.0.0
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ENVIRONMENT
+        value: production
+
+databases:
+  - name: pixzinho-db
+    databaseName: pixzinho
+    plan: free
+    ipAllowList: []
