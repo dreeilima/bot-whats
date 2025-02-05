@@ -6,7 +6,7 @@ services:
     startCommand: python setup.py
     envVars:
       - key: DATABASE_URL
-        value: postgres://postgres.xkepzvrnevgeifexcizr:Drey1992.@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+        value: postgresql://postgres.xkepzvrnevgeifexcizr:Drey1992.@aws-0-us-west-1.pooler.supabase.com:6543/postgres?sslmode=require
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: PORT
