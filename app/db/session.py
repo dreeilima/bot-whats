@@ -35,25 +35,9 @@ logger.info("URL original do banco: %s", config('DATABASE_URL'))
 # Ajusta a URL do banco para usar SSL
 DATABASE_URL = config('DATABASE_URL')
 
-# Força usar o pooler em vez do db direto
-if 'db.xkepzvrnevgeifexcizr.supabase.co' in DATABASE_URL:
-    logger.warning("Convertendo URL do banco para usar pooler...")
-    DATABASE_URL = DATABASE_URL.replace(
-        'db.xkepzvrnevgeifexcizr.supabase.co:5432',
-        'aws-0-us-west-1.pooler.supabase.com:6543'
-    )
-
-# Adiciona SSL se necessário
-if 'sslmode' not in DATABASE_URL:
-    parsed = urllib.parse.urlparse(DATABASE_URL)
-    if parsed.scheme in ('postgres', 'postgresql'):
-        params = dict(urllib.parse.parse_qsl(parsed.query))
-        params['sslmode'] = 'require'
-        DATABASE_URL = parsed._replace(
-            query=urllib.parse.urlencode(params)
-        ).geturl()
-
-logger.info("URL final do banco: %s", DATABASE_URL)
+# Log da URL (mascarada)
+masked_url = DATABASE_URL.replace(DATABASE_URL.split('@')[0], '***:***')
+logger.info("URL do banco (mascarada): %s", masked_url)
 
 # Cria engine com configurações para pooler
 engine = create_engine(

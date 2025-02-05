@@ -4,18 +4,13 @@ services:
     env: python
     buildCommand: |
       echo "Iniciando build..."
-      echo "DATABASE_URL=${DATABASE_URL}"
-      echo "ENVIRONMENT=${ENVIRONMENT}"
-      echo "HOST=${HOST}"
-      echo "PORT=${PORT}"
       python predeploy.py && pip install -r requirements.txt
     startCommand: |
       echo "Iniciando aplicação..."
-      echo "Ambiente: ${ENVIRONMENT}"
       python setup.py
     envVars:
       - key: DATABASE_URL
-        value: postgresql://postgres.xkepzvrnevgeifexcizr:Drey1992.@aws-0-us-west-1.pooler.supabase.com:6543/postgres?sslmode=require
+        sync: false
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: PORT
