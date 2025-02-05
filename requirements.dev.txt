@@ -1,0 +1,15 @@
+# Dependências base
+-r requirements.txt
+
+# Dependências de teste
+requests==2.31.0
+pytest==7.4.2
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+pytest-timeout==2.2.0
+
+# Dependências extras que faltaram
+qrcode==7.4.2
+pillow==10.0.0  # Necessário para o qrcode
+python-multipart==0.0.6
+pywhatkit==5.4 

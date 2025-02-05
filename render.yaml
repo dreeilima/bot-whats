@@ -2,19 +2,25 @@ services:
   - type: web
     name: bot-whats
     env: docker
-    region: singapore # Região mais barata
+    region: singapore
     plan: free
     buildCommand: docker build -t bot-whats .
     startCommand: python setup.py
     envVars:
       - key: DATABASE_URL
         sync: false
-        value: "postgresql://postgres.xkepzvrnevgeifexcizr:Drey1992.@aws-0-us-west-1.pooler.supabase.com:5432/postgres?sslmode=require"
+        value: "postgresql://postgres.xkepzvrnevgeifexcizr:Drey1992.@aws-0-us-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
       - key: JWT_SECRET_KEY
         sync: false
         value: "5VkIR4wdaoZUzk1004AHE7d8Qd9JtK/+UvDmuWrvbuU="
       - key: WHATSAPP_NUMBER
         sync: false
         value: "5511953238980"
+      - key: PORT
+        sync: false
+        value: "10000"
+      - key: IP
+        sync: false
+        value: "0.0.0.0"
     autoDeploy: true
     healthCheckPath: /health

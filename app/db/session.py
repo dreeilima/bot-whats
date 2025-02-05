@@ -52,8 +52,11 @@ def initialize_db():
     try:
         # Apenas cria as tabelas se não existirem
         SQLModel.metadata.create_all(engine)
+        print("Banco de dados inicializado com sucesso!")
     except Exception as e:
-        print(f"Erro ao criar tabelas: {str(e)}")
+        print(f"Aviso: Erro ao criar tabelas (pode ser ignorado se já existirem): {str(e)}")
+        # Não propaga o erro, apenas loga
+        pass
 
 # Inicializa o banco
 initialize_db()

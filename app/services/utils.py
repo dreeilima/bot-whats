@@ -13,7 +13,7 @@ import queue
 import threading
 from typing import Optional
 
-import jwt
+from jose import jwt
 
 
 def setup_logger() -> logging.Logger:

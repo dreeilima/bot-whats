@@ -23,10 +23,12 @@ COPY setup.py .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Expõe a porta
-EXPOSE 8000
+EXPOSE 10000
 
-# Define a variável de ambiente
-ENV NAME PixzinhoBot
+# Define variáveis de ambiente
+ENV PORT=10000
+ENV IP=0.0.0.0
+ENV PYTHONUNBUFFERED=1
 
 # Comando para iniciar
 CMD ["python", "setup.py"]
