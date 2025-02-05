@@ -27,3 +27,5 @@ services:
         value: "0.0.0.0"
     autoDeploy: true
     healthCheckPath: /health
+    initialDeployHook: sleep 10 # Aguarda 10s antes de verificar health
+    healthCheckRetries: 3

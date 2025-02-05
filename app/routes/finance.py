@@ -11,7 +11,10 @@ from app.db.models import (
     Transaction, 
     TransactionBase,
     Bill, 
-    BillBase
+    BillBase,
+    Category,
+    CategoryBase,
+    Goal
 )
 from app.services.security import get_current_user
 
@@ -46,21 +49,28 @@ def create_transaction(
     *,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    transaction: TransactionBase,
-    account_id: int
+    transaction: TransactionBase
 ):
     """Criar nova transação"""
-    # Verifica se a conta pertence ao usuário
+    # Verifica se a conta existe e pertence ao usuário
     account = db.query(Account).filter(
-        Account.id == account_id,
+        Account.id == transaction.account_id,
         Account.owner_id == current_user.id
     ).first()
     if not account:
         raise HTTPException(status_code=404, detail="Conta não encontrada")
 
+    # Verifica se a categoria existe (se fornecida)
+    if transaction.category_id:
+        category = db.query(Category).filter(Category.id == transaction.category_id).first()
+        if not category:
+            raise HTTPException(status_code=404, detail="Categoria não encontrada")
+
     # Cria a transação
-    db_transaction = Transaction(**transaction.dict(), account_id=account_id)
-    db.add(db_transaction)
+    db_transaction = Transaction(
+        **transaction.dict(),
+        owner_id=current_user.id
+    )
     
     # Atualiza o saldo da conta
     if transaction.type == "income":
@@ -68,8 +78,10 @@ def create_transaction(
     else:
         account.balance -= transaction.amount
     
+    db.add(db_transaction)
     db.commit()
     db.refresh(db_transaction)
+    
     return db_transaction
 
 # Rotas de Contas a Pagar
@@ -115,4 +127,114 @@ async def export_transactions(
     if format == "csv":
         return create_csv(transactions)
     elif format == "excel":
-        return create_excel(transactions) 
+        return create_excel(transactions)
+
+# Rotas de Categorias
+@router.post("/categories/")
+def create_category(
+    *,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    category: CategoryBase
+):
+    """Criar nova categoria"""
+    # Verifica se já existe
+    existing = db.query(Category).filter(Category.name == category.name).first()
+    if existing:
+        return existing
+        
+    # Cria nova categoria
+    db_category = Category(
+        name=category.name,
+        type=category.type,
+        icon=category.icon,
+        description=category.description
+    )
+    db.add(db_category)
+    db.commit()
+    db.refresh(db_category)
+    return db_category
+
+@router.get("/categories/", response_model=List[Category])
+def get_categories(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Listar todas as categorias"""
+    return db.query(Category).all()
+
+@router.get("/categories/{category_id}", response_model=Category)
+def get_category(
+    category_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Obter categoria por ID"""
+    category = db.query(Category).filter(Category.id == category_id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Categoria não encontrada")
+    return category
+
+# Rotas de Metas
+@router.post("/goals/")
+def create_goal(
+    *,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    goal: Goal
+):
+    """Criar nova meta"""
+    db_goal = Goal(
+        name=goal.name,
+        target_amount=goal.target_amount,
+        current_amount=goal.current_amount,
+        deadline=goal.deadline,
+        owner_id=current_user.id
+    )
+    db.add(db_goal)
+    db.commit()
+    db.refresh(db_goal)
+    return db_goal
+
+@router.get("/goals/", response_model=List[Goal])
+def get_goals(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Listar todas as metas do usuário"""
+    return db.query(Goal).filter(Goal.owner_id == current_user.id).all()
+
+@router.get("/goals/{goal_id}", response_model=Goal)
+def get_goal(
+    goal_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Obter meta por ID"""
+    goal = db.query(Goal).filter(
+        Goal.id == goal_id,
+        Goal.owner_id == current_user.id
+    ).first()
+    if not goal:
+        raise HTTPException(status_code=404, detail="Meta não encontrada")
+    return goal
+
+@router.put("/goals/{goal_id}/update-amount")
+def update_goal_amount(
+    goal_id: int,
+    amount: float,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Atualizar valor atual da meta"""
+    goal = db.query(Goal).filter(
+        Goal.id == goal_id,
+        Goal.owner_id == current_user.id
+    ).first()
+    if not goal:
+        raise HTTPException(status_code=404, detail="Meta não encontrada")
+        
+    goal.current_amount = amount
+    db.commit()
+    db.refresh(goal)
+    return goal 

@@ -1,6 +1,5 @@
-from typing import Union, Optional, List
+from typing import Union, Optional, List, Annotated
 from datetime import datetime
-
 from pydantic import BaseModel, EmailStr
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -24,134 +23,99 @@ class UserCreateOpen(SQLModel):
     full_name: Union[str, None] = None
 
 
-# Properties to receive via API on update, all are optional
-class UserUpdate(UserBase):
+# Properties to receive via API on update
+class UserUpdate(SQLModel):
     email: Union[EmailStr, None] = None
-    password: Union[str, None] = None
-
-
-class UserUpdateMe(BaseModel):
     password: Union[str, None] = None
     full_name: Union[str, None] = None
-    email: Union[EmailStr, None] = None
-
-# Database model, database table inferred from class name
-class User(UserBase, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    hashed_password: str
-    whatsapp: Optional[str] = None  # Número do WhatsApp do usuário
-    items: List["Item"] = Relationship(back_populates="owner")
-    accounts: List["Account"] = Relationship(back_populates="owner")
-    bills: List["Bill"] = Relationship(back_populates="owner")
-    goals: List["Goal"] = Relationship(back_populates="owner")
 
 
-# Properties to return via API, id is always required
 class UserOut(UserBase):
     id: int
 
 
-# Shared properties
-class ItemBase(SQLModel):
-    title: str
-    description: Optional[str] = None
-
-
-# Properties to receive on item creation
-class ItemCreate(ItemBase):
-    title: str
-
-
-# Properties to receive on item update
-class ItemUpdate(ItemBase):
-    title: Union[str, None] = None
-
-
-# Database model, database table inferred from class name
-class Item(ItemBase, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    owner_id: Optional[int] = Field(default=None, foreign_key="user.id")
-    owner: Optional[User] = Relationship(back_populates="items")
-
-
-# Properties to return via API, id is always required
-class ItemOut(ItemBase):
-    id: int
-
-
-# Generic message
-class Message(BaseModel):
-    message: str
-
-
-# JSON payload containing access token
-class Token(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-
-
-# Contents of JWT token
-class TokenPayload(BaseModel):
-    sub: Union[int, None] = None
-
-
-class NewPassword(BaseModel):
-    token: str
-    new_password: str
-
-
+# Base Account
 class AccountBase(SQLModel):
     name: str
-    balance: float = Field(default=0.0)
-    type: str  # (corrente, poupança, investimento, etc)
+    balance: float = 0.0
+    type: str = "checking"  # checking, savings, investment
     description: Optional[str] = None
 
 
-class TransactionBase(SQLModel):
-    amount: float
-    description: str
-    type: str  # "income" ou "expense"
-    category: str
-    date: datetime = Field(default_factory=datetime.utcnow)
-
-
-class Category(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    name: str = Field(unique=True)
-    type: str  # "expense" ou "income"
+# Base Category
+class CategoryBase(SQLModel):
+    name: str = Field(unique=False)
+    type: str  # income, expense
     icon: str = "💰"  # Emoji padrão
     description: Optional[str] = None
-    
-    transactions: List["Transaction"] = Relationship(back_populates="category")
 
 
-# Atualizar Transaction
-class Transaction(TransactionBase, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    category_id: Optional[int] = Field(foreign_key="category.id")
-    category: Optional[Category] = Relationship(back_populates="transactions")
+# Base Transaction
+class TransactionBase(SQLModel):
+    amount: float
+    type: str  # income, expense
+    description: str
+    date: datetime = Field(default_factory=datetime.utcnow)
+    account_id: int = Field(foreign_key="account.id")
+    category_id: Optional[int] = Field(default=None, foreign_key="category.id")
 
 
+# Base Bill
 class BillBase(SQLModel):
     description: str
     amount: float
     due_date: datetime
     is_paid: bool = False
-    category: str
+    category_id: Optional[int] = Field(default=None, foreign_key="category.id")
+
+
+# Token models
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class TokenPayload(BaseModel):
+    sub: Union[int, None] = None
+
+
+# Database Models
+class User(UserBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    hashed_password: str
+    whatsapp: Optional[str] = None
+    accounts: List["Account"] = Relationship(back_populates="owner")
+    transactions: List["Transaction"] = Relationship(back_populates="owner")
+    bills: List["Bill"] = Relationship(back_populates="owner")
+    goals: List["Goal"] = Relationship(back_populates="owner")
+
+
+class Account(AccountBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    owner_id: int = Field(foreign_key="user.id")
+    owner: "User" = Relationship(back_populates="accounts")
+    transactions: List["Transaction"] = Relationship(back_populates="account")
+
+
+class Category(CategoryBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    transactions: List["Transaction"] = Relationship(back_populates="category")
+    bills: List["Bill"] = Relationship(back_populates="category")
+
+
+class Transaction(TransactionBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    owner_id: int = Field(foreign_key="user.id")
+    owner: "User" = Relationship(back_populates="transactions")
+    account: "Account" = Relationship(back_populates="transactions")
+    category: Optional["Category"] = Relationship(back_populates="transactions")
 
 
 class Bill(BillBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     owner_id: int = Field(foreign_key="user.id")
-    owner: User = Relationship(back_populates="bills")
-
-
-# Atualizar Account para incluir transações
-class Account(AccountBase, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    owner_id: int = Field(foreign_key="user.id")
-    owner: User = Relationship(back_populates="accounts")
-    transactions: List[Transaction] = Relationship(back_populates="account")
+    owner: "User" = Relationship(back_populates="bills")
+    category: Optional["Category"] = Relationship(back_populates="bills")
 
 
 class Goal(SQLModel, table=True):
@@ -161,8 +125,8 @@ class Goal(SQLModel, table=True):
     current_amount: float = 0.0
     deadline: datetime
     owner_id: int = Field(foreign_key="user.id")
-    owner: User = Relationship(back_populates="goals")
+    owner: "User" = Relationship(back_populates="goals")
 
 
-# Evita referência circular
-User.update_forward_refs()
+# SQLModel lida com as referências circulares automaticamente
+SQLModel.update_forward_refs()

@@ -11,6 +11,7 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlmodel import SQLModel
 from decouple import config
 import urllib.parse
+import logging
 
 # Ajusta a URL do banco para usar SSL
 DATABASE_URL = config('DATABASE_URL')
@@ -47,15 +48,34 @@ def get_session():
 
 def initialize_db():
     """Atualiza/cria modelos"""
-    from app.db.models import User, Account, Transaction, Bill
+    from app.db.models import User, Category, Account, Transaction, Bill, Goal
     
     try:
-        # Apenas cria as tabelas se não existirem
-        SQLModel.metadata.create_all(engine)
-        print("Banco de dados inicializado com sucesso!")
+        # Cria as tabelas em ordem específica
+        tables = [
+            User.__table__,
+            Category.__table__,
+            Account.__table__,
+            Transaction.__table__,
+            Bill.__table__,
+            Goal.__table__
+        ]
+        
+        # Cria uma tabela por vez na ordem correta
+        for table in tables:
+            try:
+                table.create(engine)
+                logging.info(f"Tabela {table.name} criada com sucesso")
+            except Exception as e:
+                logging.warning(f"Aviso ao criar {table.name}: {str(e)}")
+                
+        # Executa migrações após criar as tabelas
+        from app.db.migrations import run_migrations
+        run_migrations()
+                
+        logging.info("Banco de dados inicializado com sucesso!")
     except Exception as e:
-        print(f"Aviso: Erro ao criar tabelas (pode ser ignorado se já existirem): {str(e)}")
-        # Não propaga o erro, apenas loga
+        logging.warning(f"Aviso: Erro ao criar tabelas (pode ser ignorado se já existirem): {str(e)}")
         pass
 
 # Inicializa o banco
