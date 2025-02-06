@@ -101,7 +101,7 @@ async def get_qr_code():
             return HTMLResponse(f"""
                 <html>
                     <head>
-                        <title>Pixzinho Bot - WhatsApp</title>
+                        <title>FinBot - WhatsApp</title>
                         <meta name="viewport" content="width=device-width, initial-scale=1.0">
                         <style>
                             body {{
@@ -183,8 +183,8 @@ async def get_qr_code():
                     </head>
                     <body>
                         <div class="container">
-                            <h1>📱 Pixzinho Bot</h1>
-                            <p class="subtitle">Seu assistente financeiro no WhatsApp</p>
+                            <h1>📱 FinBot</h1>
+                            <p class="subtitle">Inteligência financeira ao seu alcance</p>
                             
                             <img src="{qr}" alt="WhatsApp QR Code"/>
                             

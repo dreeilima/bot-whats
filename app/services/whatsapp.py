@@ -6,8 +6,6 @@ import base64
 from sqlmodel import Session
 from app.db.models import User, Account, Transaction, Bill, Goal, Category
 import webbrowser
-import pyautogui
-from threading import Thread
 
 logger = logging.getLogger(__name__)
 
@@ -68,18 +66,14 @@ class WhatsAppService:
     def send_message(self, to: str, message: str) -> bool:
         """Envia mensagem via WhatsApp"""
         try:
-            # Formata número
-            if not to.startswith('whatsapp:'):
-                to = f"whatsapp:+{to}"
+            # Remove formatação do número
+            clean_number = to.replace("+", "").replace("-", "").replace(" ", "")
+            if not clean_number.startswith("55"):
+                clean_number = "55" + clean_number
                 
-            # Envia via Twilio
-            self.client.messages.create(
-                from_=f"whatsapp:{self.twilio_number}",
-                body=message,
-                to=to
-            )
-            
-            logger.info(f"✅ Mensagem enviada para {to}")
+            # Cria URL do WhatsApp
+            whatsapp_url = f"https://wa.me/{clean_number}?text={message}"
+            logger.info(f"URL para envio: {whatsapp_url}")
             return True
             
         except Exception as e:
@@ -93,7 +87,7 @@ class WhatsAppService:
             if not text.startswith('/'):
                 if "olá" in text.lower() or "oi" in text.lower() or "quero gerenciar" in text.lower():
                     return """
-                    👋 Olá! Bem-vindo ao Pixzinho Bot!
+                    👋 Olá! Bem-vindo ao FinBot!
 
                     Para começar a usar, você precisa:
                     1️⃣ Criar uma conta: /registrar seu@email.com senha123

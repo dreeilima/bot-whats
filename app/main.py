@@ -19,8 +19,8 @@ from fastapi.responses import RedirectResponse
 
 
 app = FastAPI(
-    title="Pixzinho API",
-    description="API para gerenciamento financeiro via WhatsApp"
+    title="FinBot",
+    description="Inteligência financeira ao seu alcance"
 )
 # Atualiza/cria os modelos sqlalchemy
 session.initialize_db()
@@ -63,4 +63,4 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    return {"message": "Bem-vindo à API do Pixzinho!"}
+    return {"message": "Bem-vindo à API do FinBot!"}
