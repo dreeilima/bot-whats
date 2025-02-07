@@ -28,13 +28,33 @@ async function connectToWhatsApp() {
     sock = makeWASocket({
       auth: state,
       printQRInTerminal: true,
-      defaultQueryTimeoutMs: 60000, // 60 segundos
+      defaultQueryTimeoutMs: 60000,
       connectTimeoutMs: 60000,
       keepAliveIntervalMs: 25000,
       retryRequestDelayMs: 2000,
-      browser: ["Chrome (Linux)", "Chrome", "104"],
-      version: [2, 2323, 4],
-      fireAndForget: true,
+      browser: ["Ubuntu", "Chrome", "20.0.04"],
+      version: [2, 2308, 7],
+      patchMessageBeforeSending: (message) => {
+        const requiresPatch = !!(
+          message.buttonsMessage ||
+          message.templateMessage ||
+          message.listMessage
+        );
+        if (requiresPatch) {
+          message = {
+            viewOnceMessage: {
+              message: {
+                messageContextInfo: {
+                  deviceListMetadataVersion: 2,
+                  deviceListMetadata: {},
+                },
+                ...message,
+              },
+            },
+          };
+        }
+        return message;
+      },
     });
 
     sock.ev.on("connection.update", async (update) => {
