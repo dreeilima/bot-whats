@@ -72,7 +72,7 @@ class WhatsAppService:
             
             # URL do Baileys baseada no ambiente
             baileys_url = (
-                "https://finbot-whatsapp.onrender.com/send-message" 
+                "https://bot-whats-9onh.onrender.com/send-message"  # URL do seu Baileys no Render
                 if os.getenv("ENVIRONMENT") == "production"
                 else "http://localhost:3001/send-message"
             )
