@@ -77,8 +77,17 @@ def initialize_db():
                 conn.execute(text("SELECT 1"))
                 logging.info("Conexão com banco estabelecida com sucesso")
                 
+                # Lista tabelas existentes
+                result = conn.execute(text("""
+                    SELECT table_name 
+                    FROM information_schema.tables 
+                    WHERE table_schema = 'public'
+                """))
+                tables = [row[0] for row in result]
+                logging.info(f"Tabelas existentes: {tables}")
+                
                 # Cria as tabelas em ordem específica
-                tables = [
+                tables_to_create = [
                     User.__table__,
                     Category.__table__,
                     Account.__table__,
@@ -88,7 +97,7 @@ def initialize_db():
                 ]
                 
                 # Cria uma tabela por vez na ordem correta
-                for table in tables:
+                for table in tables_to_create:
                     try:
                         table.create(engine)
                         logging.info(f"Tabela {table.name} criada com sucesso")
@@ -98,10 +107,6 @@ def initialize_db():
                             raise e
                         logging.info(f"Tabela {table.name} já existe")
                         
-                # Executa migrações após criar as tabelas
-                from app.db.migrations import run_migrations
-                run_migrations()
-                        
                 logging.info("Banco de dados inicializado com sucesso!")
                 return
                 
@@ -109,7 +114,7 @@ def initialize_db():
             retry_count += 1
             last_error = e
             if retry_count < max_retries:
-                wait_time = retry_count * 5  # Aumenta o tempo de espera a cada tentativa
+                wait_time = retry_count * 5
                 logging.warning(f"Tentativa {retry_count} falhou, tentando novamente em {wait_time}s... Erro: {str(e)}")
                 time.sleep(wait_time)
             else:

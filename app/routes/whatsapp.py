@@ -1,14 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from sqlmodel import Session
 from typing import Dict
 from pydantic import BaseModel
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 import logging
+import hmac
+import hashlib
+import json
+import os
 
 from app.db.session import get_db
 from app.services.security import get_current_user
 from app.db.models import User
 from app.services.whatsapp import whatsapp_service
+from app.config import config
 
 router = APIRouter(tags=["whatsapp"])
 
@@ -53,38 +58,9 @@ async def send_whatsapp_message(
             detail=str(e)
         )
 
-@router.post("/webhook")
-async def whatsapp_webhook(
-    request: Request,
-    db: Session = Depends(get_db)
-):
-    """Webhook para receber mensagens do WhatsApp via Twilio"""
-    try:
-        # Valida assinatura do Twilio
-        form = await request.form()
-        
-        # Extrai dados
-        sender = form.get("From", "").replace("whatsapp:", "")
-        message = form.get("Body", "")
-        
-        # Busca usuário
-        user = db.query(User).filter(User.whatsapp == sender).first()
-        
-        # Processa comando
-        response = await whatsapp_service.process_command(message, user, db)
-        
-        # Envia resposta
-        whatsapp_service.send_message(sender, response)
-        
-        return {"status": "success"}
-        
-    except Exception as e:
-        logger.error(f"Erro no webhook: {str(e)}")
-        return {"status": "error", "message": str(e)}
-
-@router.get("/qr", response_class=HTMLResponse)
+@router.get("/qr")
 async def get_qr_code():
-    """Gera e retorna o QR Code para conexão do WhatsApp"""
+    """Gera QR Code para conexão do WhatsApp"""
     try:
         logger.info("Gerando QR Code...")
         qr = whatsapp_service.get_qr_code()
@@ -215,4 +191,121 @@ async def get_qr_code():
         return HTMLResponse("QR Code não disponível. Tente novamente em alguns segundos.")
     except Exception as e:
         logger.error(f"Erro ao gerar QR Code: {str(e)}")
-        return HTMLResponse(f"Erro ao gerar QR Code: {str(e)}") 
+        return HTMLResponse(f"Erro ao gerar QR Code: {str(e)}")
+
+@router.post("/webhook")
+async def whatsapp_webhook(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Webhook para receber mensagens do WhatsApp"""
+    try:
+        # Recebe dados
+        data = await request.json()
+        logger.info(f"Webhook recebido: {data}")
+        
+        # Extrai dados da mensagem
+        message = data.get("message", {})
+        text = message.get("text", "")
+        from_number = message.get("from", "")
+        
+        logger.info(f"Número: {from_number}, Mensagem: {text}")
+        
+        # Busca/cria usuário
+        user = get_or_create_user(db, from_number)
+        logger.info(f"Usuário: {user.id} ({user.whatsapp})")
+        
+        # Processa a mensagem
+        response = whatsapp_service.process_message(text, user, db)
+        logger.info(f"Resposta: {response}")
+        
+        # Envia a resposta
+        whatsapp_service.send_message(from_number, response)
+        
+        return {
+            "status": "success",
+            "message": response,
+            "sent": True
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro no webhook: {str(e)}")
+        return Response(
+            content=json.dumps({"error": str(e)}),
+            status_code=500
+        )
+
+def verify_webhook_signature(body: bytes, signature: str) -> bool:
+    """Verifica assinatura do webhook"""
+    # Desabilitada verificação de segurança
+    return True
+
+def get_or_create_user(db: Session, phone: str) -> User:
+    """Busca ou cria usuário pelo número"""
+    try:
+        # Busca usuário
+        user = db.query(User).filter(User.whatsapp == phone).first()
+        
+        if not user:
+            # Cria novo usuário
+            user = User(
+                whatsapp=phone,
+                name=f"WhatsApp User {phone[-4:]}",  # Últimos 4 dígitos
+                email=f"whatsapp_{phone}@bot.com",  # Email fictício
+                hashed_password="not_used",  # Senha não usada
+                is_active=True
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            logger.info(f"Novo usuário criado: {user.whatsapp}")
+            
+        return user
+        
+    except Exception as e:
+        logger.error(f"Erro ao criar usuário: {str(e)}")
+        raise e
+
+@router.get("/test/{command}")
+async def test_command(command: str):
+    """Testa comandos do bot em uma página web"""
+    try:
+        # Processa o comando
+        response = whatsapp_service.process_message(command)
+        
+        return HTMLResponse(f"""
+            <html>
+                <head>
+                    <title>Teste do Bot</title>
+                    <meta charset="utf-8">
+                    <style>
+                        body {{
+                            font-family: Arial;
+                            max-width: 600px;
+                            margin: 40px auto;
+                            padding: 20px;
+                            line-height: 1.6;
+                        }}
+                        .message {{
+                            background: #e8f5e9;
+                            padding: 20px;
+                            border-radius: 10px;
+                            white-space: pre-wrap;
+                        }}
+                        h1 {{ color: #2e7d32; }}
+                    </style>
+                </head>
+                <body>
+                    <h1>Teste do Comando: {command}</h1>
+                    <div class="message">{response}</div>
+                </body>
+            </html>
+        """)
+    except Exception as e:
+        return HTMLResponse(f"Erro: {str(e)}")
+
+WEBHOOK_URL = config(
+    "WEBHOOK_URL_PROD" 
+    if os.getenv("ENVIRONMENT") == "production" 
+    else "WEBHOOK_URL_DEV"
+) 

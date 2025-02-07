@@ -21,31 +21,24 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment
+# Ambiente
+.env
+.venv
 venv/
 ENV/
 
-# Environment Variables
-.env
-
-# Logs
-*.log
-bot_monitor.log
-
-# IDE
+# IDEs
 .idea/
 .vscode/
 *.swp
 *.swo
 
-# Sistema
-.DS_Store
-Thumbs.db
+# Logs
+*.log
+
+# Banco de dados
+*.sqlite3
+*.db
 
 # Docker
-data/
-
-*.pyc
-error_logs.txt
-*.db
-openapi.json
+postgres_data/

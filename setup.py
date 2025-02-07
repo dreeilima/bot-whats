@@ -10,9 +10,14 @@ import time
 # Configura logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    force=True
 )
 logger = logging.getLogger(__name__)
+
+logger.info("="*50)
+logger.info("Iniciando servidor...")
+logger.info("="*50)
 
 def main():
     try:
