@@ -29,3 +29,11 @@ services:
     autoDeploy: true
     numInstances: 1
     plan: free
+    scaling:
+      minInstances: 1
+      maxInstances: 1
+    healthCheckPath: /status
+    disk:
+      name: tmp
+      mountPath: /tmp
+      sizeGB: 0.5
