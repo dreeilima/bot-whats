@@ -12,7 +12,7 @@ import os
 from app.db.session import get_db
 from app.services.security import get_current_user
 from app.db.models import User
-from app.services.whatsapp import whatsapp_service
+from app.services.whatsapp import whatsapp_service, WhatsAppService
 from app.config import config
 
 router = APIRouter(tags=["whatsapp"])
@@ -193,32 +193,34 @@ async def get_qr_code():
         logger.error(f"Erro ao gerar QR Code: {str(e)}")
         return HTMLResponse(f"Erro ao gerar QR Code: {str(e)}")
 
-@router.post("/whatsapp/webhook")
-async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
+@router.post("/webhook")
+async def webhook(message: dict):
     try:
-        data = await request.json()
-        logger.info(f"Webhook recebido: {data}")
+        logger.info(f"Mensagem recebida: {message}")
         
-        message = data.get("message", {})
-        text = message.get("text", "")
-        from_number = message.get("from", "")
+        # Extrai dados
+        text = message.get("message", {}).get("text", "")
+        from_number = message.get("message", {}).get("from", "")
         
-        # Busca ou cria usuário
-        user = get_or_create_user(db, from_number)
-        logger.info(f"Usuário: {user.id} ({user.whatsapp})")
+        if not text or not from_number:
+            raise HTTPException(status_code=400, detail="Mensagem inválida")
+            
+        logger.info(f"Processando mensagem de {from_number}: {text}")
         
         # Processa a mensagem
-        response = whatsapp_service.process_message(text, user, db)
-        logger.info(f"Resposta: {response}")
+        response = whatsapp_service.process_message(text)
         
         # Envia resposta
-        whatsapp_service.send_message(from_number, response)
-        
-        return {"status": "success", "message": response}
+        if response:
+            logger.info(f"Enviando resposta para {from_number}: {response}")
+            whatsapp_service.send_message(from_number, response)
+            
+        return {"status": "success"}
         
     except Exception as e:
         logger.error(f"Erro no webhook: {str(e)}")
-        return {"error": str(e)}
+        logger.exception(e)
+        raise HTTPException(status_code=500, detail=str(e))
 
 def verify_webhook_signature(body: bytes, signature: str) -> bool:
     """Verifica assinatura do webhook"""

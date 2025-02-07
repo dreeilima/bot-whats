@@ -6,6 +6,7 @@ const {
 const { Boom } = require("@hapi/boom");
 const express = require("express");
 const qrcode = require("qrcode");
+const fetch = require("node-fetch");
 const app = express();
 app.use(express.json());
 
@@ -15,52 +16,115 @@ const PORT = process.env.PORT || 3001;
 // Status da conexão
 let connectionStatus = "disconnected";
 let currentQR = "";
-let sock = null; // Guarda a conexão
+let sock = null;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 async function connectToWhatsApp() {
   try {
+    console.log("Iniciando conexão...");
     const { state, saveCreds } = await useMultiFileAuthState("auth_info");
+
     sock = makeWASocket({
       auth: state,
       printQRInTerminal: true,
-      defaultQueryTimeoutMs: 30000, // 30 segundos timeout
-      connectTimeoutMs: 30000,
-      keepAliveIntervalMs: 15000,
-      retryRequestDelayMs: 5000,
+      defaultQueryTimeoutMs: 60000, // 60 segundos
+      connectTimeoutMs: 60000,
+      keepAliveIntervalMs: 25000,
+      retryRequestDelayMs: 2000,
+      browser: ["Chrome (Linux)", "Chrome", "104"],
+      version: [2, 2323, 4],
+      fireAndForget: true,
     });
 
     sock.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect, qr } = update;
+      console.log("Status da conexão:", connection);
 
       if (qr) {
         currentQR = await qrcode.toDataURL(qr);
         connectionStatus = "awaiting_scan";
         console.log("🔄 Novo QR code gerado - Aguardando scan...");
+        reconnectAttempts = 0; // Reset contador ao gerar novo QR
       }
 
       if (connection === "close") {
         connectionStatus = "disconnected";
         console.log("❌ Conexão fechada");
 
-        const shouldReconnect =
-          (lastDisconnect?.error instanceof Boom)?.output?.statusCode !==
-          DisconnectReason.loggedOut;
+        const statusCode = lastDisconnect?.error?.output?.statusCode;
+        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
-        if (shouldReconnect) {
-          console.log("🔄 Reconectando...");
-          setTimeout(connectToWhatsApp, 5000); // Tenta reconectar após 5s
+        if (shouldReconnect && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          reconnectAttempts++;
+          console.log(
+            `🔄 Tentativa de reconexão ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`
+          );
+          setTimeout(connectToWhatsApp, 5000 * reconnectAttempts);
+        } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+          console.log("❌ Máximo de tentativas de reconexão atingido");
+          process.exit(1); // Força restart do serviço
         }
       } else if (connection === "open") {
         connectionStatus = "connected";
         console.log("🟢 Conectado com sucesso ao WhatsApp!");
         currentQR = "";
+        reconnectAttempts = 0;
       }
     });
 
     sock.ev.on("creds.update", saveCreds);
+
+    // Listener de mensagens
+    sock.ev.on("messages.upsert", async ({ messages }) => {
+      try {
+        for (const message of messages) {
+          if (message.key.fromMe) continue;
+
+          const from = message.key.remoteJid?.replace("@s.whatsapp.net", "");
+          const text =
+            message.message?.conversation ||
+            message.message?.extendedTextMessage?.text ||
+            "";
+
+          console.log(`📩 Mensagem recebida de ${from}: ${text}`);
+
+          if (text && from) {
+            try {
+              const response = await fetch(
+                "https://finbot-api.onrender.com/whatsapp/webhook",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    message: { from, text },
+                  }),
+                  timeout: 30000,
+                }
+              );
+
+              if (!response.ok) {
+                throw new Error(
+                  `FastAPI respondeu com status ${response.status}`
+                );
+              }
+
+              console.log("✅ Mensagem processada pelo FastAPI");
+            } catch (error) {
+              console.error("❌ Erro ao enviar para FastAPI:", error);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("❌ Erro ao processar mensagem:", error);
+      }
+    });
   } catch (err) {
     console.error("Erro ao conectar:", err);
-    setTimeout(connectToWhatsApp, 5000); // Tenta reconectar após 5s
+    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      reconnectAttempts++;
+      setTimeout(connectToWhatsApp, 5000 * reconnectAttempts);
+    }
   }
 }
 
