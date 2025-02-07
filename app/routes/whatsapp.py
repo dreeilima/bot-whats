@@ -210,12 +210,8 @@ async def webhook(message: dict):
         # Processa a mensagem
         response = whatsapp_service.process_message(text)
         
-        # Envia resposta
-        if response:
-            logger.info(f"Enviando resposta para {from_number}: {response}")
-            whatsapp_service.send_message(from_number, response)
-            
-        return {"status": "success"}
+        # Retorna resposta
+        return {"message": response} if response else {"status": "success"}
         
     except Exception as e:
         logger.error(f"Erro no webhook: {str(e)}")
