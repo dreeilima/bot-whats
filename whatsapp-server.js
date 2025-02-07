@@ -5,12 +5,15 @@ const {
 } = require("@whiskeysockets/baileys");
 const { Boom } = require("@hapi/boom");
 const express = require("express");
-const qrcode = require("qrcode-terminal");
+const qrcode = require("qrcode");
 const app = express();
 app.use(express.json());
 
 // Porta para a API
 const PORT = process.env.PORT || 3001;
+
+// Armazena o QR code atual
+let currentQR = "";
 
 async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState("auth_info");
@@ -24,10 +27,9 @@ async function connectToWhatsApp() {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      // Gera QR code no terminal
-      console.log("\n\nPOR FAVOR ESCANEIE O QR CODE ABAIXO NO SEU WHATSAPP:\n");
-      qrcode.generate(qr, { small: true });
-      console.log("\nAguardando scan...\n");
+      // Gera QR code como imagem base64
+      currentQR = await qrcode.toDataURL(qr);
+      console.log("Novo QR code gerado");
     }
 
     if (connection === "close") {
@@ -65,6 +67,85 @@ async function connectToWhatsApp() {
     }
   });
 }
+
+// Rota inicial
+app.get("/", (req, res) => {
+  res.send(`
+    <html>
+      <head>
+        <title>WhatsApp Bot</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+          }
+          img {
+            max-width: 300px;
+            margin: 20px 0;
+          }
+          .container {
+            margin-top: 50px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>WhatsApp Bot</h1>
+          <p>Escaneie o QR Code para conectar:</p>
+          <a href="/qr"><button>Ver QR Code</button></a>
+        </div>
+      </body>
+    </html>
+  `);
+});
+
+// Rota para o QR code
+app.get("/qr", (req, res) => {
+  if (!currentQR) {
+    return res.send(
+      "QR Code ainda não disponível. Aguarde alguns segundos e tente novamente."
+    );
+  }
+
+  res.send(`
+    <html>
+      <head>
+        <title>WhatsApp QR Code</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+          }
+          img {
+            max-width: 300px;
+            margin: 20px 0;
+          }
+          .container {
+            margin-top: 50px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>WhatsApp QR Code</h1>
+          <p>Escaneie o QR Code abaixo no seu WhatsApp:</p>
+          <img src="${currentQR}" alt="WhatsApp QR Code"/>
+          <p>
+            <small>Se o QR code não aparecer, <a href="/qr">clique aqui</a> para atualizar.</small>
+          </p>
+        </div>
+      </body>
+    </html>
+  `);
+});
 
 // Inicia o servidor
 app.listen(PORT, () => {
