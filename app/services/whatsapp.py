@@ -23,10 +23,24 @@ class WhatsAppService:
     def initialize(self):
         """Inicializa o serviço"""
         try:
+            logger.info("Inicializando WhatsAppService...")
+            
+            # Verifica número do bot
+            if not self.phone_number:
+                self.phone_number = config('WHATSAPP_NUMBER', default=None)
+                logger.info(f"Número do bot: {self.phone_number}")
+            
+            if not self.phone_number:
+                logger.error("WHATSAPP_NUMBER não configurado")
+                return None
+            
             self.is_initialized = True
-            return self.get_qr_code()
+            logger.info("WhatsAppService inicializado com sucesso")
+            return True
+            
         except Exception as e:
             logger.error(f"❌ Erro ao inicializar: {str(e)}")
+            logger.exception(e)
             return None
             
     def get_qr_code(self):

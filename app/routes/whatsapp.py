@@ -62,6 +62,9 @@ async def send_whatsapp_message(
 async def get_qr_code():
     """Gera QR Code para conexão do WhatsApp"""
     try:
+        logger.info("Inicializando serviço...")
+        whatsapp_service.initialize()  # Inicializa o serviço primeiro
+        
         logger.info("Gerando QR Code...")
         qr = whatsapp_service.get_qr_code()
         logger.info(f"QR Code gerado: {bool(qr)}")
