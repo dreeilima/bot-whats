@@ -44,19 +44,26 @@ async function connectToWhatsApp() {
   try {
     log("Iniciando conexão...");
 
-    // Remove auth_info para forçar novo QR
-    if (fs.existsSync("auth_info")) {
-      fs.rmSync("auth_info", { recursive: true, force: true });
-    }
-
     const { state, saveCreds } = await useMultiFileAuthState("auth_info");
 
-    // Configuração mais simples
+    // Configuração mais estável
     sock = makeWASocket({
       auth: state,
-      printQRInTerminal: false, // Desabilita QR padrão
-      browser: ["Chrome", "Windows", "10"],
-      defaultQueryTimeoutMs: undefined,
+      printQRInTerminal: false,
+      browser: ["Ubuntu", "Firefox", "3.0"],
+      version: [2, 2308, 7],
+      connectTimeoutMs: 60000,
+      qrTimeout: 40000,
+      defaultQueryTimeoutMs: 20000,
+      emitOwnEvents: true,
+      markOnlineOnConnect: true,
+      syncFullHistory: false,
+      retryRequestDelayMs: 250,
+      fireAndForget: false,
+      shouldIgnoreJid: (jid) => isJidBroadcast(jid),
+      getMessage: async (key) => {
+        return { conversation: "retry" };
+      },
     });
 
     sock.ev.on("connection.update", async (update) => {
@@ -78,7 +85,17 @@ async function connectToWhatsApp() {
       if (connection === "close") {
         connectionStatus = "disconnected";
         log("❌ Conexão fechada");
-        connectToWhatsApp(); // Reconecta imediatamente
+
+        const statusCode = lastDisconnect?.error?.output?.statusCode;
+        log(`Código de erro: ${statusCode}`);
+
+        // Reconecta apenas em casos específicos
+        if (statusCode !== DisconnectReason.loggedOut) {
+          setTimeout(() => {
+            log("🔄 Tentando reconectar...");
+            connectToWhatsApp();
+          }, 3000);
+        }
       } else if (connection === "open") {
         connectionStatus = "connected";
         log("🟢 Conectado com sucesso!");
