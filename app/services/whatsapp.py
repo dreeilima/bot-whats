@@ -5,10 +5,10 @@ import io
 import base64
 from sqlmodel import Session
 from app.db.models import User, Account, Transaction, Bill, Goal, Category
-import webbrowser
-from datetime import datetime
 import requests
 from urllib.parse import quote
+import os
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -23,28 +23,17 @@ class WhatsAppService:
                 self.phone_number = "55" + self.phone_number
         
         self.qr_code = None
-        self.is_initialized = False
         logger.info(f"Iniciando WhatsApp com número: {self.phone_number}")
         
     def get_qr_code(self):
         """Gera QR Code para conexão do WhatsApp"""
         try:
-            # Força o número do bot
-            bot_number = config('WHATSAPP_NUMBER', default=None)
-            
-            if not bot_number:
+            if not self.phone_number:
                 logger.error("WHATSAPP_NUMBER não configurado no .env")
                 return None
             
-            # Remove formatação e adiciona 55 se necessário
-            bot_number = bot_number.replace("+", "").replace("-", "").replace(" ", "")
-            if not bot_number.startswith("55"):
-                bot_number = "55" + bot_number
-            
-            logger.info(f"Gerando QR para número: {bot_number}")
-            
             # Cria URL do WhatsApp
-            whatsapp_url = f"https://wa.me/{bot_number}?text=oi"
+            whatsapp_url = f"https://wa.me/{self.phone_number}?text=oi"
             logger.info(f"URL do WhatsApp: {whatsapp_url}")
             
             # Gera QR code
@@ -70,43 +59,53 @@ class WhatsAppService:
             
         except Exception as e:
             logger.error(f"❌ Erro ao gerar QR code: {str(e)}")
-            logger.exception(e)  # Mostra o stack trace completo
+            logger.exception(e)
             return None
             
     def send_message(self, to: str, message: str) -> bool:
-        """Envia mensagem via WhatsApp"""
+        """Envia mensagem via servidor Baileys"""
         try:
             # Remove formatação do número
             clean_number = to.replace("+", "").replace("-", "").replace(" ", "")
             if not clean_number.startswith("55"):
                 clean_number = "55" + clean_number
             
-            # Codifica a mensagem para URL (preservando emojis)
-            encoded_message = quote(message)
+            # URL do Baileys baseada no ambiente
+            baileys_url = (
+                "https://finbot-whatsapp.onrender.com/send-message" 
+                if os.getenv("ENVIRONMENT") == "production"
+                else "http://localhost:3001/send-message"
+            )
             
-            # Cria URL do WhatsApp
-            whatsapp_url = f"https://api.whatsapp.com/send?phone={clean_number}&text={encoded_message}"
+            # Envia para o servidor Baileys
+            response = requests.post(
+                baileys_url,
+                json={
+                    "to": clean_number,
+                    "message": message
+                }
+            )
             
-            logger.info(f"URL para envio: {whatsapp_url}")
-            
-            # Abre URL no navegador padrão
-            webbrowser.open(whatsapp_url)
-            
-            return True
-            
+            if response.status_code == 200:
+                logger.info(f"Mensagem enviada para {clean_number}")
+                return True
+            else:
+                logger.error(f"Erro ao enviar mensagem: {response.text}")
+                return False
+                
         except Exception as e:
             logger.error(f"❌ Erro ao enviar mensagem: {str(e)}")
+            logger.exception(e)
             return False
             
-    def process_message(self, text: str, user: User, db: Session) -> str:
+    def process_message(self, text: str, user: User = None, db: Session = None) -> str:
         """Processa mensagens recebidas"""
         try:
             text = text.lower().strip()
-            logger.info(f"Processando mensagem: '{text}' do usuário {user.whatsapp}")
+            logger.info(f"Processando mensagem: '{text}'")
             
             # Comandos básicos
             if text in ["oi", "olá", "ola"]:
-                logger.info("Comando: boas vindas")
                 return (
                     "👋 Olá! Eu sou o FinBot!\n\n"
                     "Para começar, envie:\n"
@@ -115,13 +114,35 @@ class WhatsAppService:
             
             # Comando de ajuda
             if text == "/ajuda":
-                logger.info("Comando: ajuda")
-                return self.get_help_message()
+                return (
+                    "🤖 Comandos disponíveis:\n\n"
+                    "💰 Finanças:\n"
+                    "/saldo - Ver saldo atual\n"
+                    "/extrato - Ver últimas transações\n"
+                    "/categorias - Resumo por categoria\n\n"
+                    "💸 Registros:\n"
+                    "/despesa valor descrição #categoria\n"
+                    "Exemplo: /despesa 50 Almoço #alimentação\n\n"
+                    "/receita valor descrição #categoria\n"
+                    "Exemplo: /receita 1000 Salário #salário\n\n"
+                    "💡 A categoria é opcional"
+                )
 
             # Comando de saldo
             if text == "/saldo":
-                logger.info("Comando: saldo")
-                return self.check_balance(user, db)
+                if not user or not db:
+                    return "❌ Erro: Usuário não autenticado"
+                accounts = db.query(Account).filter(Account.owner_id == user.id).all()
+                if not accounts:
+                    return "❌ Você ainda não tem nenhuma conta cadastrada."
+                
+                total = sum(account.balance for account in accounts)
+                response = "💰 Saldo das Contas:\n\n"
+                for acc in accounts:
+                    icon = "🔴" if acc.balance < 0 else "🟢"
+                    response += f"{icon} {acc.name}: R$ {acc.balance:.2f}\n"
+                response += f"\n📊 Total: R$ {total:.2f}"
+                return response
 
             # Comando de despesa
             if text.startswith("/despesa"):
@@ -149,12 +170,11 @@ class WhatsAppService:
                 return self.get_category_summary(user, db)
             
             # Comando não reconhecido
-            logger.warning(f"Comando não reconhecido: {text}")
             return "❓ Comando não reconhecido. Digite /ajuda para ver os comandos disponíveis."
             
         except Exception as e:
             logger.error(f"Erro ao processar mensagem: {str(e)}")
-            logger.exception(e)  # Isso mostra o stack trace completo
+            logger.exception(e)
             return "❌ Desculpe, ocorreu um erro ao processar sua mensagem."
 
     def register_transaction(self, text: str, user: User, db: Session, type_: str) -> str:
@@ -265,7 +285,7 @@ class WhatsAppService:
         return """
 👋 Olá! Eu sou o FinBot, seu assistente financeiro!
 
-💰 Posso te ajudar a:
+Posso te ajudar a:
 - Registrar despesas e receitas
 - Consultar seu saldo
 - Ver extrato

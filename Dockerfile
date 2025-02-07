@@ -4,7 +4,7 @@ FROM python:3.11-slim
 # Define o diretório de trabalho no container
 WORKDIR /app
 
-# Instala apenas dependências essenciais
+# Instala dependências do sistema
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     gcc \
@@ -30,3 +30,20 @@ ENV PYTHONUNBUFFERED=1
 
 # Comando para iniciar
 CMD ["python", "setup.py"]
+
+FROM node:16-slim
+
+WORKDIR /app
+
+# Instala dependências do Node
+COPY package*.json ./
+RUN npm install
+
+# Copia arquivos do servidor
+COPY whatsapp-server.js .
+
+# Expõe porta
+EXPOSE 3000
+
+# Inicia servidor
+CMD ["npm", "start"]

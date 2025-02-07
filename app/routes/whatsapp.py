@@ -58,13 +58,10 @@ async def send_whatsapp_message(
             detail=str(e)
         )
 
-@router.get("/qr")
+@router.get("/whatsapp/qr")
 async def get_qr_code():
     """Gera QR Code para conexão do WhatsApp"""
     try:
-        logger.info("Inicializando serviço...")
-        whatsapp_service.initialize()  # Inicializa o serviço primeiro
-        
         logger.info("Gerando QR Code...")
         qr = whatsapp_service.get_qr_code()
         logger.info(f"QR Code gerado: {bool(qr)}")
@@ -196,25 +193,17 @@ async def get_qr_code():
         logger.error(f"Erro ao gerar QR Code: {str(e)}")
         return HTMLResponse(f"Erro ao gerar QR Code: {str(e)}")
 
-@router.post("/webhook")
-async def whatsapp_webhook(
-    request: Request,
-    db: Session = Depends(get_db)
-):
-    """Webhook para receber mensagens do WhatsApp"""
+@router.post("/whatsapp/webhook")
+async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
     try:
-        # Recebe dados
         data = await request.json()
         logger.info(f"Webhook recebido: {data}")
         
-        # Extrai dados da mensagem
         message = data.get("message", {})
         text = message.get("text", "")
         from_number = message.get("from", "")
         
-        logger.info(f"Número: {from_number}, Mensagem: {text}")
-        
-        # Busca/cria usuário
+        # Busca ou cria usuário
         user = get_or_create_user(db, from_number)
         logger.info(f"Usuário: {user.id} ({user.whatsapp})")
         
@@ -222,21 +211,14 @@ async def whatsapp_webhook(
         response = whatsapp_service.process_message(text, user, db)
         logger.info(f"Resposta: {response}")
         
-        # Envia a resposta
+        # Envia resposta
         whatsapp_service.send_message(from_number, response)
         
-        return {
-            "status": "success",
-            "message": response,
-            "sent": True
-        }
+        return {"status": "success", "message": response}
         
     except Exception as e:
         logger.error(f"Erro no webhook: {str(e)}")
-        return Response(
-            content=json.dumps({"error": str(e)}),
-            status_code=500
-        )
+        return {"error": str(e)}
 
 def verify_webhook_signature(body: bytes, signature: str) -> bool:
     """Verifica assinatura do webhook"""
@@ -246,16 +228,21 @@ def verify_webhook_signature(body: bytes, signature: str) -> bool:
 def get_or_create_user(db: Session, phone: str) -> User:
     """Busca ou cria usuário pelo número"""
     try:
+        # Remove formatação do número
+        clean_number = phone.replace("+", "").replace("-", "").replace(" ", "")
+        if not clean_number.startswith("55"):
+            clean_number = "55" + clean_number
+            
         # Busca usuário
-        user = db.query(User).filter(User.whatsapp == phone).first()
+        user = db.query(User).filter(User.whatsapp == clean_number).first()
         
         if not user:
             # Cria novo usuário
             user = User(
-                whatsapp=phone,
-                name=f"WhatsApp User {phone[-4:]}",  # Últimos 4 dígitos
-                email=f"whatsapp_{phone}@bot.com",  # Email fictício
-                hashed_password="not_used",  # Senha não usada
+                whatsapp=clean_number,
+                email=f"whatsapp_{clean_number}@bot.com",
+                full_name=f"WhatsApp {clean_number[-4:]}",
+                hashed_password="not_used",
                 is_active=True
             )
             db.add(user)

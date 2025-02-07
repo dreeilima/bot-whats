@@ -63,70 +63,40 @@ def get_session():
     return Session(engine)
 
 def initialize_db():
-    """Atualiza/cria modelos"""
-    from app.db.models import User, Category, Account, Transaction, Bill, Goal
-    
-    max_retries = 5
-    retry_count = 0
-    last_error = None
-    
-    while retry_count < max_retries:
-        try:
-            # Testa conexão primeiro
-            with engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-                logging.info("Conexão com banco estabelecida com sucesso")
-                
-                # Lista tabelas existentes
-                result = conn.execute(text("""
-                    SELECT table_name 
-                    FROM information_schema.tables 
-                    WHERE table_schema = 'public'
-                """))
-                tables = [row[0] for row in result]
-                logging.info(f"Tabelas existentes: {tables}")
-                
-                # Cria as tabelas em ordem específica
-                tables_to_create = [
-                    User.__table__,
-                    Category.__table__,
-                    Account.__table__,
-                    Transaction.__table__,
-                    Bill.__table__,
-                    Goal.__table__
-                ]
-                
-                # Cria uma tabela por vez na ordem correta
-                for table in tables_to_create:
-                    try:
-                        table.create(engine)
-                        logging.info(f"Tabela {table.name} criada com sucesso")
-                    except Exception as e:
-                        if "already exists" not in str(e):
-                            logging.error(f"Erro ao criar {table.name}: {str(e)}")
-                            raise e
-                        logging.info(f"Tabela {table.name} já existe")
-                        
-                logging.info("Banco de dados inicializado com sucesso!")
-                return
-                
-        except Exception as e:
-            retry_count += 1
-            last_error = e
-            if retry_count < max_retries:
-                wait_time = retry_count * 5
-                logging.warning(f"Tentativa {retry_count} falhou, tentando novamente em {wait_time}s... Erro: {str(e)}")
-                time.sleep(wait_time)
-            else:
-                logging.error(f"Todas as {max_retries} tentativas falharam. Último erro: {str(last_error)}")
-                raise last_error
+    """Inicializa o banco de dados"""
+    try:
+        # Importa todos os modelos
+        from app.db.models import User, Account, Category, Transaction, Bill, Goal
+        
+        # Cria todas as tabelas
+        SQLModel.metadata.create_all(engine)
+        
+        # Testa a conexão
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+            logger.info("Conexão com banco estabelecida com sucesso")
+            
+            # Lista tabelas criadas
+            result = conn.execute(text("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public'
+            """))
+            tables = [row[0] for row in result]
+            logger.info(f"Tabelas existentes: {tables}")
+            
+        logger.info("Banco de dados inicializado com sucesso!")
+        
+    except Exception as e:
+        logger.error(f"Erro ao inicializar banco: {str(e)}")
+        raise e
 
 # Inicializa o banco
 initialize_db()
 
 def get_db():
-    """certifica que o banco de dados seja fechado ao final de cada request"""
-    db = get_session()
+    """Retorna uma sessão do banco"""
+    db = SessionLocal()
     try:
         yield db
     finally:

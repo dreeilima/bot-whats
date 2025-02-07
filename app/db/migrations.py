@@ -6,48 +6,28 @@ def run_migrations():
     """Executa migrações necessárias no banco de dados"""
     try:
         with engine.connect() as conn:
-            # Remove coluna antiga 'category' se existir
-            try:
-                conn.execute(text("""
-                    ALTER TABLE transaction 
-                    DROP COLUMN IF EXISTS category;
-                """))
-            except:
-                pass
-
-            # Adiciona coluna owner_id em transaction se não existir
-            conn.execute(text("""
-                ALTER TABLE transaction 
-                ADD COLUMN IF NOT EXISTS owner_id INTEGER REFERENCES "user"(id);
-            """))
+            # Recria as tabelas (com aspas duplas no "user")
+            tables = [
+                'bill',
+                'transaction',
+                'category',
+                'account',
+                '"user"',  # Entre aspas por ser palavra reservada
+                'goal'
+            ]
             
-            # Adiciona coluna category_id em transaction se não existir
-            conn.execute(text("""
-                ALTER TABLE transaction 
-                ADD COLUMN IF NOT EXISTS category_id INTEGER REFERENCES category(id);
-            """))
-            
-            # Adiciona coluna category_id em bill se não existir
-            conn.execute(text("""
-                ALTER TABLE bill 
-                ADD COLUMN IF NOT EXISTS category_id INTEGER REFERENCES category(id);
-            """))
-            
-            # Adiciona coluna owner_id em bill se não existir
-            conn.execute(text("""
-                ALTER TABLE bill 
-                ADD COLUMN IF NOT EXISTS owner_id INTEGER REFERENCES "user"(id);
-            """))
-            
-            # Adiciona outras colunas necessárias
-            conn.execute(text("""
-                ALTER TABLE "user" 
-                ADD COLUMN IF NOT EXISTS whatsapp VARCHAR(20);
-            """))
+            for table in tables:
+                try:
+                    conn.execute(text(f"DROP TABLE IF EXISTS {table} CASCADE;"))
+                    logging.info(f"Tabela {table} removida")
+                except Exception as e:
+                    logging.warning(f"Erro ao remover {table}: {str(e)}")
             
             conn.commit()
-            logging.info("Migrações executadas com sucesso")
+            logging.info("Tabelas antigas removidas")
+            
+            # As novas tabelas serão criadas automaticamente pelo SQLModel
+            
     except Exception as e:
-        logging.warning(f"Erro ao executar migração (pode ser ignorado na primeira execução): {str(e)}")
-        # Não propaga o erro
-        pass 
+        logging.error(f"Erro ao executar migração: {str(e)}")
+        raise e 

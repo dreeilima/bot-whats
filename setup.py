@@ -1,45 +1,28 @@
 import os
 import logging
-from app.main import app
-import uvicorn
+import time
 from app.db.session import initialize_db
 from app.db.migrations import run_migrations
-from app.services.whatsapp import whatsapp_service
-import time
+import uvicorn
 
-# Configura logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    force=True
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-logger.info("="*50)
-logger.info("Iniciando servidor...")
-logger.info("="*50)
 
 def main():
     try:
-        # Aguarda mais tempo para o banco estar pronto em produção
-        if os.getenv('ENVIRONMENT') == 'production':
-            logger.info("Ambiente de produção detectado, aguardando 30s...")
-            time.sleep(30)
-        else:
-            logger.info("Aguardando banco de dados inicializar...")
-            time.sleep(10)
+        # Aguarda banco inicializar
+        time.sleep(5)
         
-        # Inicializa o banco
+        # Inicializa banco
         initialize_db()
+        
+        # Executa migrações
         run_migrations()
         
-        # Configura host e porta
+        # Inicia servidor
         host = os.getenv("HOST", "0.0.0.0")
-        port = int(os.getenv("PORT", "10000"))
+        port = int(os.getenv("PORT", "8000"))
         
-        logger.info(f"Iniciando servidor em {host}:{port}")
-        
-        # Inicia o servidor
         uvicorn.run(
             "app.main:app",
             host=host,

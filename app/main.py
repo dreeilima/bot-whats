@@ -8,12 +8,7 @@ import json
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .db import session
-from .routes import (
-    user_router,
-    auth_router,
-    finance_router,
-    whatsapp_router
-)
+from .routes import routers  # Importa a lista de routers
 
 from fastapi.responses import RedirectResponse
 
@@ -25,25 +20,18 @@ app = FastAPI(
 # Atualiza/cria os modelos sqlalchemy
 session.initialize_db()
 
-# Grava origens permitidas para fazer requisições na API
-origins = [
-    "*",
-]
-
-# Adiciona middlewares a engine
+# Configuração CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# adiciona as rotas a engine
-app.include_router(auth_router, prefix="/auth")
-app.include_router(user_router, prefix="/users")
-app.include_router(finance_router, prefix="/finance")
-app.include_router(whatsapp_router, prefix="/whatsapp")
+# Registra routers sem prefix
+for router in routers:
+    app.include_router(router)
 
 @app.get("/", include_in_schema=False)
 async def redirect():
@@ -63,4 +51,4 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    return {"message": "Bem-vindo à API do FinBot!"}
+    return {"message": "FinBot API"}

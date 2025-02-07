@@ -80,42 +80,68 @@ class TokenPayload(BaseModel):
 
 
 # Database Models
-class User(UserBase, table=True):
+class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(unique=True, index=True)
+    full_name: Optional[str] = None
+    whatsapp: Optional[str] = None  # Adiciona campo whatsapp
     hashed_password: str
-    whatsapp: Optional[str] = None
+    is_active: bool = True
+    is_superuser: bool = False
+    
+    # Relacionamentos
     accounts: List["Account"] = Relationship(back_populates="owner")
     transactions: List["Transaction"] = Relationship(back_populates="owner")
     bills: List["Bill"] = Relationship(back_populates="owner")
     goals: List["Goal"] = Relationship(back_populates="owner")
 
 
-class Account(AccountBase, table=True):
+class Account(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    balance: float = 0.0
+    type: str = "checking"  # checking, savings, investment
+    description: Optional[str] = None
     owner_id: int = Field(foreign_key="user.id")
-    owner: "User" = Relationship(back_populates="accounts")
+    owner: User = Relationship(back_populates="accounts")
     transactions: List["Transaction"] = Relationship(back_populates="account")
 
 
-class Category(CategoryBase, table=True):
+class Category(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    type: str  # income, expense
+    icon: str = "💰"
+    description: Optional[str] = None
     transactions: List["Transaction"] = Relationship(back_populates="category")
-    bills: List["Bill"] = Relationship(back_populates="category")
 
 
-class Transaction(TransactionBase, table=True):
+class Transaction(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    amount: float
+    type: str  # income, expense
+    description: str
+    date: datetime = Field(default_factory=datetime.utcnow)
     owner_id: int = Field(foreign_key="user.id")
-    owner: "User" = Relationship(back_populates="transactions")
-    account: "Account" = Relationship(back_populates="transactions")
-    category: Optional["Category"] = Relationship(back_populates="transactions")
+    account_id: int = Field(foreign_key="account.id")
+    category_id: Optional[int] = Field(default=None, foreign_key="category.id")
+    
+    owner: User = Relationship(back_populates="transactions")
+    account: Account = Relationship(back_populates="transactions")
+    category: Optional[Category] = Relationship(back_populates="transactions")
 
 
-class Bill(BillBase, table=True):
+class Bill(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    description: str
+    amount: float
+    due_date: datetime
+    is_paid: bool = False
     owner_id: int = Field(foreign_key="user.id")
-    owner: "User" = Relationship(back_populates="bills")
-    category: Optional["Category"] = Relationship(back_populates="bills")
+    category_id: Optional[int] = Field(default=None, foreign_key="category.id")
+    
+    owner: User = Relationship(back_populates="bills")
+    category: Optional[Category] = Relationship()
 
 
 class Goal(SQLModel, table=True):
