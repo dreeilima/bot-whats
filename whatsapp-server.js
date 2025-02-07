@@ -158,7 +158,14 @@ app.get("/", (req, res) => {
 });
 
 // Rota para usuários
-app.get("/whatsapp/qr", (req, res) => {
+app.get("/whatsapp/qr", async (req, res) => {
+  // Gera QR code para o número do WhatsApp
+  const phoneNumber = "5511965905750"; // Substitua pelo número real
+  const whatsappUrl = `https://wa.me/${phoneNumber}?text=oi`;
+
+  // Gera o QR code
+  const whatsappQR = await qrcode.toDataURL(whatsappUrl);
+
   res.send(`
     <html>
       <head>
@@ -189,16 +196,35 @@ app.get("/whatsapp/qr", (req, res) => {
             border-radius: 5px;
             font-family: monospace;
           }
+          .qr-container {
+            margin: 30px 0;
+            padding: 20px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          }
+          .qr-code {
+            max-width: 200px;
+            margin: 20px auto;
+          }
         </style>
       </head>
       <body>
         <div class="container">
           <h1>🤖 FinBot - Seu Assistente Financeiro</h1>
           
+          <div class="qr-container">
+            <h2>📱 Conecte-se ao FinBot</h2>
+            <p>Escaneie o QR code abaixo ou clique nele para abrir o WhatsApp:</p>
+            <a href="${whatsappUrl}" target="_blank">
+              <img src="${whatsappQR}" alt="WhatsApp QR Code" class="qr-code"/>
+            </a>
+          </div>
+
           <div class="steps">
             <h2>Como começar:</h2>
             <ol>
-              <li>Salve o contato do FinBot: <span class="highlight">+55 11 99999-9999</span></li>
+              <li>Escaneie o QR code acima ou salve o contato: <span class="highlight">+${phoneNumber}</span></li>
               <li>Envie uma mensagem com <span class="highlight">/ajuda</span></li>
             </ol>
 
