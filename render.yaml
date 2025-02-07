@@ -14,10 +14,12 @@ services:
         sync: false
       - key: ENVIRONMENT
         value: production
+      - key: WHATSAPP_API_URL
+        value: https://bot-whats-9onh.onrender.com
 
   # Serviço Node.js (Baileys)
   - type: web
-    name: finbot-whatsapp
+    name: bot-whats
     env: node
     buildCommand: npm install
     startCommand: node whatsapp-server.js
