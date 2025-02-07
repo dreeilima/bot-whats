@@ -33,10 +33,16 @@ class WhatsAppService:
         """Gera QR Code para conexão do WhatsApp"""
         try:
             # Força o número do bot
-            bot_number = "11965905750"  # Número fixo do bot
+            bot_number = config('WHATSAPP_NUMBER', default=None)
             
-            # Adiciona 55 para formato internacional
-            bot_number = "55" + bot_number
+            if not bot_number:
+                logger.error("WHATSAPP_NUMBER não configurado no .env")
+                return None
+            
+            # Remove formatação e adiciona 55 se necessário
+            bot_number = bot_number.replace("+", "").replace("-", "").replace(" ", "")
+            if not bot_number.startswith("55"):
+                bot_number = "55" + bot_number
             
             logger.info(f"Gerando QR para número: {bot_number}")
             
@@ -67,6 +73,7 @@ class WhatsAppService:
             
         except Exception as e:
             logger.error(f"❌ Erro ao gerar QR code: {str(e)}")
+            logger.exception(e)  # Mostra o stack trace completo
             return None
             
     def send_message(self, to: str, message: str) -> bool:
