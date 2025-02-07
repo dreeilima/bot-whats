@@ -12,63 +12,91 @@ app.use(express.json());
 // Porta para a API
 const PORT = process.env.PORT || 3001;
 
-// Armazena o QR code atual
+// Status da conexão
+let connectionStatus = "disconnected";
 let currentQR = "";
+let sock = null; // Guarda a conexão
 
 async function connectToWhatsApp() {
-  const { state, saveCreds } = await useMultiFileAuthState("auth_info");
-  const sock = makeWASocket({
-    auth: state,
-    printQRInTerminal: true,
-    defaultQueryTimeoutMs: undefined,
-  });
+  try {
+    const { state, saveCreds } = await useMultiFileAuthState("auth_info");
+    sock = makeWASocket({
+      auth: state,
+      printQRInTerminal: true,
+      defaultQueryTimeoutMs: 30000, // 30 segundos timeout
+      connectTimeoutMs: 30000,
+      keepAliveIntervalMs: 15000,
+      retryRequestDelayMs: 5000,
+    });
 
-  sock.ev.on("connection.update", async (update) => {
-    const { connection, lastDisconnect, qr } = update;
+    sock.ev.on("connection.update", async (update) => {
+      const { connection, lastDisconnect, qr } = update;
 
-    if (qr) {
-      // Gera QR code como imagem base64
-      currentQR = await qrcode.toDataURL(qr);
-      console.log("Novo QR code gerado");
-    }
-
-    if (connection === "close") {
-      const shouldReconnect =
-        (lastDisconnect.error instanceof Boom)?.output?.statusCode !==
-        DisconnectReason.loggedOut;
-      console.log(
-        "Conexão fechada por",
-        lastDisconnect.error,
-        "Reconectando:",
-        shouldReconnect
-      );
-      if (shouldReconnect) {
-        connectToWhatsApp();
+      if (qr) {
+        currentQR = await qrcode.toDataURL(qr);
+        connectionStatus = "awaiting_scan";
+        console.log("🔄 Novo QR code gerado - Aguardando scan...");
       }
-    } else if (connection === "open") {
-      console.log("\n🟢 Conectado com sucesso ao WhatsApp!\n");
-    }
-  });
 
-  sock.ev.on("creds.update", saveCreds);
+      if (connection === "close") {
+        connectionStatus = "disconnected";
+        console.log("❌ Conexão fechada");
 
-  // Endpoint para enviar mensagens
-  app.post("/send-message", async (req, res) => {
-    try {
-      const { to, message } = req.body;
-      console.log(`Enviando mensagem para ${to}: ${message}`);
+        const shouldReconnect =
+          (lastDisconnect?.error instanceof Boom)?.output?.statusCode !==
+          DisconnectReason.loggedOut;
 
-      await sock.sendMessage(to + "@s.whatsapp.net", { text: message });
+        if (shouldReconnect) {
+          console.log("🔄 Reconectando...");
+          setTimeout(connectToWhatsApp, 5000); // Tenta reconectar após 5s
+        }
+      } else if (connection === "open") {
+        connectionStatus = "connected";
+        console.log("🟢 Conectado com sucesso ao WhatsApp!");
+        currentQR = "";
+      }
+    });
 
-      res.json({ status: "success", message: "Mensagem enviada" });
-    } catch (error) {
-      console.error("Erro ao enviar mensagem:", error);
-      res.status(500).json({ status: "error", message: error.message });
-    }
-  });
+    sock.ev.on("creds.update", saveCreds);
+  } catch (err) {
+    console.error("Erro ao conectar:", err);
+    setTimeout(connectToWhatsApp, 5000); // Tenta reconectar após 5s
+  }
 }
 
-// Rota inicial
+// Endpoint para enviar mensagens com timeout
+app.post("/send-message", async (req, res) => {
+  try {
+    if (!sock || connectionStatus !== "connected") {
+      return res.status(400).json({
+        status: "error",
+        message: "WhatsApp não está conectado",
+      });
+    }
+
+    const { to, message } = req.body;
+    console.log(`📤 Enviando mensagem para ${to}: ${message}`);
+
+    // Adiciona timeout na requisição
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Timeout")), 30000)
+    );
+
+    const sendMessage = sock.sendMessage(to + "@s.whatsapp.net", {
+      text: message,
+    });
+
+    await Promise.race([sendMessage, timeout]);
+    console.log(`✅ Mensagem enviada para ${to}`);
+
+    res.json({ status: "success", message: "Mensagem enviada" });
+  } catch (error) {
+    console.error("❌ Erro ao enviar mensagem:", error);
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
+// Rota inicial com status
 app.get("/", (req, res) => {
   res.send(`
     <html>
@@ -83,20 +111,41 @@ app.get("/", (req, res) => {
             padding: 20px;
             text-align: center;
           }
-          img {
-            max-width: 300px;
+          .status {
+            padding: 10px;
             margin: 20px 0;
+            border-radius: 5px;
           }
-          .container {
-            margin-top: 50px;
+          .connected { background: #d4edda; color: #155724; }
+          .disconnected { background: #f8d7da; color: #721c24; }
+          .awaiting_scan { background: #fff3cd; color: #856404; }
+          button {
+            padding: 10px 20px;
+            margin: 10px;
+            border-radius: 5px;
+            border: none;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+          }
+          button:hover {
+            background: #0056b3;
           }
         </style>
       </head>
       <body>
         <div class="container">
           <h1>WhatsApp Bot</h1>
-          <p>Escaneie o QR Code para conectar:</p>
-          <a href="/qr"><button>Ver QR Code</button></a>
+          
+          <div class="status ${connectionStatus}">
+            Status: ${connectionStatus.toUpperCase()}
+          </div>
+          
+          ${
+            connectionStatus === "connected"
+              ? "<p>✅ Bot conectado e pronto para usar!</p>"
+              : '<p>Escaneie o QR Code para conectar:</p><a href="/qr"><button>Ver QR Code</button></a>'
+          }
         </div>
       </body>
     </html>
@@ -105,6 +154,10 @@ app.get("/", (req, res) => {
 
 // Rota para o QR code
 app.get("/qr", (req, res) => {
+  if (connectionStatus === "connected") {
+    return res.redirect("/");
+  }
+
   if (!currentQR) {
     return res.send(
       "QR Code ainda não disponível. Aguarde alguns segundos e tente novamente."
@@ -116,6 +169,7 @@ app.get("/qr", (req, res) => {
       <head>
         <title>WhatsApp QR Code</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta http-equiv="refresh" content="30">
         <style>
           body {
             font-family: Arial, sans-serif;
@@ -139,7 +193,8 @@ app.get("/qr", (req, res) => {
           <p>Escaneie o QR Code abaixo no seu WhatsApp:</p>
           <img src="${currentQR}" alt="WhatsApp QR Code"/>
           <p>
-            <small>Se o QR code não aparecer, <a href="/qr">clique aqui</a> para atualizar.</small>
+            <small>Esta página atualiza automaticamente a cada 30 segundos.<br>
+            Se o QR code não aparecer, <a href="/qr">clique aqui</a> para atualizar.</small>
           </p>
         </div>
       </body>
@@ -147,9 +202,18 @@ app.get("/qr", (req, res) => {
   `);
 });
 
+// Rota de status com timeout
+app.get("/status", (req, res) => {
+  res.json({
+    status: connectionStatus,
+    connected: connectionStatus === "connected",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Inicia o servidor
 app.listen(PORT, () => {
-  console.log(`\n🚀 Servidor rodando na porta ${PORT}`);
-  console.log("\nIniciando conexão com WhatsApp...\n");
+  console.log(`\n🚀 Servidor Baileys rodando na porta ${PORT}`);
+  console.log("\n📱 Iniciando conexão com WhatsApp...\n");
   connectToWhatsApp();
 });

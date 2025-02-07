@@ -9,9 +9,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .db import session
 from .routes import routers  # Importa a lista de routers
+from app.routes import whatsapp
+from app.db.session import initialize_db
+import logging
 
 from fastapi.responses import RedirectResponse
 
+# Configura logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="FinBot",
@@ -33,6 +39,9 @@ app.add_middleware(
 for router in routers:
     app.include_router(router)
 
+# Adiciona rotas
+app.include_router(whatsapp.router)
+
 @app.get("/", include_in_schema=False)
 async def redirect():
     return RedirectResponse("/docs#")
@@ -46,8 +55,8 @@ def save_openapi_json():
         json.dump(openapi_data, file)
 
 @app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
+def health_check():
+    return {"status": "ok"}
 
 @app.get("/")
 async def root():

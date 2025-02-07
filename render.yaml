@@ -26,3 +26,6 @@ services:
     envVars:
       - key: PORT
         value: 3001
+    autoDeploy: true
+    numInstances: 1
+    plan: free
