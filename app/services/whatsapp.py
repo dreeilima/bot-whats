@@ -1,5 +1,5 @@
 import logging
-from decouple import config
+from app.config import config
 import qrcode
 import io
 import base64
@@ -16,33 +16,16 @@ class WhatsAppService:
     def __init__(self):
         # Carrega número do bot
         self.phone_number = config('WHATSAPP_NUMBER', default=None)
+        if self.phone_number:
+            # Garante formato correto
+            self.phone_number = self.phone_number.replace("+", "").replace("-", "").replace(" ", "")
+            if not self.phone_number.startswith("55"):
+                self.phone_number = "55" + self.phone_number
+        
         self.qr_code = None
         self.is_initialized = False
         logger.info(f"Iniciando WhatsApp com número: {self.phone_number}")
         
-    def initialize(self):
-        """Inicializa o serviço"""
-        try:
-            logger.info("Inicializando WhatsAppService...")
-            
-            # Verifica número do bot
-            if not self.phone_number:
-                self.phone_number = config('WHATSAPP_NUMBER', default=None)
-                logger.info(f"Número do bot: {self.phone_number}")
-            
-            if not self.phone_number:
-                logger.error("WHATSAPP_NUMBER não configurado")
-                return None
-            
-            self.is_initialized = True
-            logger.info("WhatsAppService inicializado com sucesso")
-            return True
-            
-        except Exception as e:
-            logger.error(f"❌ Erro ao inicializar: {str(e)}")
-            logger.exception(e)
-            return None
-            
     def get_qr_code(self):
         """Gera QR Code para conexão do WhatsApp"""
         try:
@@ -97,13 +80,17 @@ class WhatsAppService:
             clean_number = to.replace("+", "").replace("-", "").replace(" ", "")
             if not clean_number.startswith("55"):
                 clean_number = "55" + clean_number
-                
+            
             # Codifica a mensagem para URL (preservando emojis)
-            encoded_message = quote(message.encode('utf-8'))
-                
+            encoded_message = quote(message)
+            
             # Cria URL do WhatsApp
-            whatsapp_url = f"https://wa.me/{clean_number}?text={encoded_message}"
+            whatsapp_url = f"https://api.whatsapp.com/send?phone={clean_number}&text={encoded_message}"
+            
             logger.info(f"URL para envio: {whatsapp_url}")
+            
+            # Abre URL no navegador padrão
+            webbrowser.open(whatsapp_url)
             
             return True
             

@@ -1,15 +1,16 @@
-from decouple import config as decouple_config
+from decouple import config as _config
 import logging
 
-def config(key: str, default=None, cast=None):
-    """Wrapper para decouple.config com logging"""
+def get_config(key: str, default=None):
+    """Wrapper para carregar configurações com log de erros"""
     try:
-        value = decouple_config(key, default=default, cast=cast)
-        logging.debug(f"Config loaded: {key}={value}")
-        return value
+        return _config(key, default=default)
     except Exception as e:
         logging.error(f"Error loading config {key}: {str(e)}")
         return default
+
+# Exporta como 'config' para manter compatibilidade
+config = get_config
 
 # Carrega configurações principais
 ENVIRONMENT = config("ENVIRONMENT", default="development")
