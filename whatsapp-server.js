@@ -30,62 +30,33 @@ function log(message, type = "info") {
   fs.appendFileSync("whatsapp.log", logMessage);
 }
 
+// Adicione esta função
+function generateSmallQR(qr) {
+  return qrcode.toString(qr, {
+    type: "terminal",
+    small: true,
+    margin: 1,
+    scale: 1,
+  });
+}
+
 async function connectToWhatsApp() {
   try {
     log("Iniciando conexão...");
 
-    // Limpa auth_info se existir
+    // Remove auth_info para forçar novo QR
     if (fs.existsSync("auth_info")) {
-      log("Limpando auth_info existente...");
       fs.rmSync("auth_info", { recursive: true, force: true });
     }
 
     const { state, saveCreds } = await useMultiFileAuthState("auth_info");
 
+    // Configuração mais simples
     sock = makeWASocket({
       auth: state,
-      printQRInTerminal: true,
-      defaultQueryTimeoutMs: 60000,
-      connectTimeoutMs: 60000,
-      keepAliveIntervalMs: 25000,
-      retryRequestDelayMs: 2000,
-      browser: ["Ubuntu", "Chrome", "20.0.04"],
-      version: [2, 2308, 7],
-      qrTimeout: 40000, // Timeout do QR code
-      connectTimeout: 60000, // Timeout da conexão
-      regenerateQRIntervalMs: 30000, // Regenera QR a cada 30s
-      patchMessageBeforeSending: (message) => {
-        const requiresPatch = !!(
-          message.buttonsMessage ||
-          message.templateMessage ||
-          message.listMessage
-        );
-        if (requiresPatch) {
-          message = {
-            viewOnceMessage: {
-              message: {
-                messageContextInfo: {
-                  deviceListMetadataVersion: 2,
-                  deviceListMetadata: {},
-                },
-                ...message,
-              },
-            },
-          };
-        }
-        return message;
-      },
-      logger: {
-        info(msg) {
-          log(msg);
-        },
-        error(msg) {
-          log(msg, "error");
-        },
-        warn(msg) {
-          log(msg, "warn");
-        },
-      },
+      printQRInTerminal: false, // Desabilita QR padrão
+      browser: ["Chrome", "Windows", "10"],
+      defaultQueryTimeoutMs: undefined,
     });
 
     sock.ev.on("connection.update", async (update) => {
@@ -93,38 +64,25 @@ async function connectToWhatsApp() {
       log(`Status da conexão: ${connection}`);
 
       if (qr) {
-        // Gera QR code menor (versão L = menor, margin = 2)
-        currentQR = await qrcode.toDataURL(qr, {
-          errorCorrectionLevel: "L",
-          margin: 2,
-          scale: 4,
-        });
+        // Gera QR code menor para o terminal
+        const smallQR = await generateSmallQR(qr);
+        console.log("\nEscaneie o QR Code abaixo:\n");
+        console.log(smallQR);
+
+        // Gera QR code para web
+        currentQR = await qrcode.toDataURL(qr);
         connectionStatus = "awaiting_scan";
         log("🔄 Novo QR code gerado");
-        reconnectAttempts = 0;
       }
 
       if (connection === "close") {
         connectionStatus = "disconnected";
         log("❌ Conexão fechada");
-
-        const statusCode = lastDisconnect?.error?.output?.statusCode;
-        log(`Código de status: ${statusCode}`);
-
-        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-
-        if (shouldReconnect && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-          reconnectAttempts++;
-          log(
-            `🔄 Tentativa de reconexão ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`
-          );
-          setTimeout(connectToWhatsApp, RECONNECT_INTERVAL);
-        }
+        connectToWhatsApp(); // Reconecta imediatamente
       } else if (connection === "open") {
         connectionStatus = "connected";
-        log("🟢 Conectado com sucesso ao WhatsApp!");
+        log("🟢 Conectado com sucesso!");
         currentQR = "";
-        reconnectAttempts = 0;
       }
     });
 
@@ -176,8 +134,7 @@ async function connectToWhatsApp() {
     });
   } catch (err) {
     log(`Erro ao conectar: ${err.message}`, "error");
-    log(err.stack, "error");
-    setTimeout(connectToWhatsApp, RECONNECT_INTERVAL);
+    setTimeout(connectToWhatsApp, 3000);
   }
 }
 
@@ -369,46 +326,26 @@ app.get("/whatsapp/qr", async (req, res) => {
   `);
 });
 
-// Rota para o QR code (simplificada)
+// Rota para o QR code (mais simples)
 app.get("/qr", (req, res) => {
-  if (connectionStatus === "connected") {
-    return res.redirect("/");
-  }
-
-  if (!currentQR) {
-    return res.send(`
-      <html>
-        <head>
-          <title>QR Code</title>
-          <meta http-equiv="refresh" content="5;url=/qr">
-          <style>
-            body { font-family: Arial; text-align: center; padding: 20px; }
-            .qr { max-width: 256px; margin: 20px auto; }
-          </style>
-        </head>
-        <body>
-          <p>Aguarde, gerando QR code...</p>
-          <p><small>Atualizando em 5 segundos...</small></p>
-        </body>
-      </html>
-    `);
-  }
-
   res.send(`
     <html>
       <head>
         <title>WhatsApp QR Code</title>
-        <meta http-equiv="refresh" content="30">
+        <meta http-equiv="refresh" content="5">
         <style>
           body { font-family: Arial; text-align: center; padding: 20px; }
-          .qr { max-width: 256px; margin: 20px auto; }
+          img { max-width: 300px; }
         </style>
       </head>
       <body>
-        <div class="qr">
-          <img src="${currentQR}" alt="QR Code" style="width: 100%"/>
-        </div>
-        <p><small>Atualizando em 30 segundos...</small></p>
+        <h2>WhatsApp QR Code</h2>
+        ${
+          currentQR
+            ? `<img src="${currentQR}" alt="QR Code"/>`
+            : "<p>Gerando QR code...</p>"
+        }
+        <p><small>Atualizando em 5 segundos...</small></p>
       </body>
     </html>
   `);
