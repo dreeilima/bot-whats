@@ -7,6 +7,7 @@ const { Boom } = require("@hapi/boom");
 const express = require("express");
 const qrcode = require("qrcode");
 const fetch = require("node-fetch");
+const fs = require("fs");
 const app = express();
 app.use(express.json());
 
@@ -21,9 +22,24 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_INTERVAL = 3000; // 3 segundos
 
+// Configuração de logs
+function log(message, type = "info") {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+  console.log(logMessage);
+  fs.appendFileSync("whatsapp.log", logMessage);
+}
+
 async function connectToWhatsApp() {
   try {
-    console.log("Iniciando conexão...");
+    log("Iniciando conexão...");
+
+    // Limpa auth_info se existir
+    if (fs.existsSync("auth_info")) {
+      log("Limpando auth_info existente...");
+      fs.rmSync("auth_info", { recursive: true, force: true });
+    }
+
     const { state, saveCreds } = await useMultiFileAuthState("auth_info");
 
     sock = makeWASocket({
@@ -59,39 +75,49 @@ async function connectToWhatsApp() {
         }
         return message;
       },
+      logger: {
+        info(msg) {
+          log(msg);
+        },
+        error(msg) {
+          log(msg, "error");
+        },
+        warn(msg) {
+          log(msg, "warn");
+        },
+      },
     });
 
     sock.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect, qr } = update;
-      console.log("Status da conexão:", connection);
+      log(`Status da conexão: ${connection}`);
 
       if (qr) {
         currentQR = await qrcode.toDataURL(qr);
         connectionStatus = "awaiting_scan";
-        console.log("🔄 Novo QR code gerado - Aguardando scan...");
-        reconnectAttempts = 0; // Reset contador ao gerar novo QR
+        log("🔄 Novo QR code gerado - Aguardando scan...");
+        reconnectAttempts = 0;
       }
 
       if (connection === "close") {
         connectionStatus = "disconnected";
-        console.log("❌ Conexão fechada");
+        log("❌ Conexão fechada");
 
         const statusCode = lastDisconnect?.error?.output?.statusCode;
+        log(`Código de status: ${statusCode}`);
+
         const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
         if (shouldReconnect && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
           reconnectAttempts++;
-          console.log(
+          log(
             `🔄 Tentativa de reconexão ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`
           );
-          setTimeout(connectToWhatsApp, 5000 * reconnectAttempts);
-        } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-          console.log("❌ Máximo de tentativas de reconexão atingido");
-          process.exit(1); // Força restart do serviço
+          setTimeout(connectToWhatsApp, RECONNECT_INTERVAL);
         }
       } else if (connection === "open") {
         connectionStatus = "connected";
-        console.log("🟢 Conectado com sucesso ao WhatsApp!");
+        log("🟢 Conectado com sucesso ao WhatsApp!");
         currentQR = "";
         reconnectAttempts = 0;
       }
@@ -111,7 +137,7 @@ async function connectToWhatsApp() {
             message.message?.extendedTextMessage?.text ||
             "";
 
-          console.log(`📩 Mensagem recebida de ${from}: ${text}`);
+          log(`📩 Mensagem recebida de ${from}: ${text}`);
 
           if (text && from) {
             try {
@@ -133,18 +159,19 @@ async function connectToWhatsApp() {
                 );
               }
 
-              console.log("✅ Mensagem processada pelo FastAPI");
+              log("✅ Mensagem processada pelo FastAPI");
             } catch (error) {
-              console.error("❌ Erro ao enviar para FastAPI:", error);
+              log("❌ Erro ao enviar para FastAPI:", error, "error");
             }
           }
         }
       } catch (error) {
-        console.error("❌ Erro ao processar mensagem:", error);
+        log("❌ Erro ao processar mensagem:", error, "error");
       }
     });
   } catch (err) {
-    console.error("Erro ao conectar:", err);
+    log(`Erro ao conectar: ${err.message}`, "error");
+    log(err.stack, "error");
     setTimeout(connectToWhatsApp, RECONNECT_INTERVAL);
   }
 }
@@ -160,7 +187,7 @@ app.post("/send-message", async (req, res) => {
     }
 
     const { to, message } = req.body;
-    console.log(`📤 Enviando mensagem para ${to}: ${message}`);
+    log(`📤 Enviando mensagem para ${to}: ${message}`);
 
     // Adiciona timeout na requisição
     const timeout = new Promise((_, reject) =>
@@ -172,11 +199,11 @@ app.post("/send-message", async (req, res) => {
     });
 
     await Promise.race([sendMessage, timeout]);
-    console.log(`✅ Mensagem enviada para ${to}`);
+    log(`✅ Mensagem enviada para ${to}`);
 
     res.json({ status: "success", message: "Mensagem enviada" });
   } catch (error) {
-    console.error("❌ Erro ao enviar mensagem:", error);
+    log("❌ Erro ao enviar mensagem:", error, "error");
     res.status(500).json({ status: "error", message: error.message });
   }
 });
@@ -388,7 +415,7 @@ app.get("/qr", async (req, res) => {
 
     if (retries < maxRetries) {
       retries++;
-      console.log(`Tentativa ${retries} de gerar QR code...`);
+      log(`Tentativa ${retries} de gerar QR code...`);
       await new Promise((resolve) => setTimeout(resolve, 2000));
       return checkQR();
     }
