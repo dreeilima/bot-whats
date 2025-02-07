@@ -96,12 +96,12 @@ app.post("/send-message", async (req, res) => {
   }
 });
 
-// Rota inicial com status
+// Rota admin (página inicial)
 app.get("/", (req, res) => {
   res.send(`
     <html>
       <head>
-        <title>WhatsApp Bot</title>
+        <title>FinBot Admin</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
           body {
@@ -119,6 +119,11 @@ app.get("/", (req, res) => {
           .connected { background: #d4edda; color: #155724; }
           .disconnected { background: #f8d7da; color: #721c24; }
           .awaiting_scan { background: #fff3cd; color: #856404; }
+          .steps {
+            text-align: left;
+            max-width: 500px;
+            margin: 30px auto;
+          }
           button {
             padding: 10px 20px;
             margin: 10px;
@@ -135,7 +140,7 @@ app.get("/", (req, res) => {
       </head>
       <body>
         <div class="container">
-          <h1>WhatsApp Bot</h1>
+          <h1>🔧 FinBot Admin</h1>
           
           <div class="status ${connectionStatus}">
             Status: ${connectionStatus.toUpperCase()}
@@ -146,6 +151,75 @@ app.get("/", (req, res) => {
               ? "<p>✅ Bot conectado e pronto para usar!</p>"
               : '<p>Escaneie o QR Code para conectar:</p><a href="/qr"><button>Ver QR Code</button></a>'
           }
+        </div>
+      </body>
+    </html>
+  `);
+});
+
+// Rota para usuários
+app.get("/whatsapp/qr", (req, res) => {
+  res.send(`
+    <html>
+      <head>
+        <title>FinBot - Seu Assistente Financeiro</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+          }
+          .steps {
+            text-align: left;
+            max-width: 500px;
+            margin: 30px auto;
+          }
+          .commands {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+          }
+          .highlight {
+            background: #e9ecef;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-family: monospace;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>🤖 FinBot - Seu Assistente Financeiro</h1>
+          
+          <div class="steps">
+            <h2>Como começar:</h2>
+            <ol>
+              <li>Salve o contato do FinBot: <span class="highlight">+55 11 99999-9999</span></li>
+              <li>Envie uma mensagem com <span class="highlight">/ajuda</span></li>
+            </ol>
+
+            <div class="commands">
+              <h3>📝 Comandos principais:</h3>
+              <ul>
+                <li><span class="highlight">/saldo</span> - Ver saldo atual</li>
+                <li><span class="highlight">/receita 1000 Salário #salario</span> - Registrar receita</li>
+                <li><span class="highlight">/despesa 50 Almoço #alimentacao</span> - Registrar despesa</li>
+                <li><span class="highlight">/extrato</span> - Ver últimas transações</li>
+                <li><span class="highlight">/categorias</span> - Ver resumo por categoria</li>
+              </ul>
+            </div>
+
+            <h3>💡 Dicas:</h3>
+            <ul>
+              <li>Use # para categorizar suas transações</li>
+              <li>Exemplo: /despesa 30 Uber #transporte</li>
+              <li>A categoria é opcional</li>
+            </ul>
+          </div>
         </div>
       </body>
     </html>

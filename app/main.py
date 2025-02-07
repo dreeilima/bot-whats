@@ -12,8 +12,8 @@ from .routes import routers  # Importa a lista de routers
 from app.routes import whatsapp
 from app.db.session import initialize_db
 import logging
-
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
+from app.services.whatsapp import WhatsAppService
 
 # Configura logging
 logging.basicConfig(level=logging.INFO)
@@ -61,3 +61,55 @@ def health_check():
 @app.get("/")
 async def root():
     return {"message": "FinBot API"}
+
+# Rota para página inicial com QR code
+@app.get("/", response_class=HTMLResponse)
+async def home():
+    whatsapp_service = WhatsAppService()
+    return f"""
+    <html>
+        <head>
+            <title>FinBot - Seu Assistente Financeiro</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    max-width: 800px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    text-align: center;
+                }}
+                .container {{
+                    margin-top: 50px;
+                }}
+                .steps {{
+                    text-align: left;
+                    max-width: 500px;
+                    margin: 30px auto;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🤖 FinBot - Seu Assistente Financeiro</h1>
+                <p>Para começar a usar o FinBot, siga os passos:</p>
+                
+                <div class="steps">
+                    <h3>1. Escaneie o QR Code abaixo:</h3>
+                    <img src="{whatsapp_service.get_qr_code()}" alt="WhatsApp QR Code"/>
+                    
+                    <h3>2. Envie uma mensagem:</h3>
+                    <p>Depois de escanear, envie <strong>/ajuda</strong> para ver todos os comandos disponíveis.</p>
+                    
+                    <h3>Comandos principais:</h3>
+                    <ul>
+                        <li>/saldo - Ver saldo atual</li>
+                        <li>/receita valor descrição #categoria</li>
+                        <li>/despesa valor descrição #categoria</li>
+                        <li>/extrato - Ver últimas transações</li>
+                    </ul>
+                </div>
+            </div>
+        </body>
+    </html>
+    """
