@@ -93,9 +93,14 @@ async function connectToWhatsApp() {
       log(`Status da conexão: ${connection}`);
 
       if (qr) {
-        currentQR = await qrcode.toDataURL(qr);
+        // Gera QR code menor (versão L = menor, margin = 2)
+        currentQR = await qrcode.toDataURL(qr, {
+          errorCorrectionLevel: "L",
+          margin: 2,
+          scale: 4,
+        });
         connectionStatus = "awaiting_scan";
-        log("🔄 Novo QR code gerado - Aguardando scan...");
+        log("🔄 Novo QR code gerado");
         reconnectAttempts = 0;
       }
 
@@ -364,78 +369,49 @@ app.get("/whatsapp/qr", async (req, res) => {
   `);
 });
 
-// Rota para o QR code com retry
-app.get("/qr", async (req, res) => {
-  let retries = 0;
-  const maxRetries = 3;
+// Rota para o QR code (simplificada)
+app.get("/qr", (req, res) => {
+  if (connectionStatus === "connected") {
+    return res.redirect("/");
+  }
 
-  async function checkQR() {
-    if (connectionStatus === "connected") {
-      return res.redirect("/");
-    }
-
-    if (currentQR) {
-      return res.send(`
-        <html>
-          <head>
-            <title>WhatsApp QR Code</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <meta http-equiv="refresh" content="30">
-            <style>
-              body {
-                font-family: Arial, sans-serif;
-                max-width: 800px;
-                margin: 0 auto;
-                padding: 20px;
-                text-align: center;
-              }
-              img {
-                max-width: 300px;
-                margin: 20px 0;
-              }
-              .container {
-                margin-top: 50px;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>WhatsApp QR Code</h1>
-              <p>Escaneie o QR Code abaixo no seu WhatsApp:</p>
-              <img src="${currentQR}" alt="WhatsApp QR Code"/>
-              <p>
-                <small>Esta página atualiza automaticamente a cada 30 segundos.<br>
-                Se o QR code não aparecer, <a href="/qr">clique aqui</a> para atualizar.</small>
-              </p>
-            </div>
-          </body>
-        </html>
-      `);
-    }
-
-    if (retries < maxRetries) {
-      retries++;
-      log(`Tentativa ${retries} de gerar QR code...`);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      return checkQR();
-    }
-
+  if (!currentQR) {
     return res.send(`
       <html>
         <head>
-          <title>QR Code não disponível</title>
+          <title>QR Code</title>
           <meta http-equiv="refresh" content="5;url=/qr">
+          <style>
+            body { font-family: Arial; text-align: center; padding: 20px; }
+            .qr { max-width: 256px; margin: 20px auto; }
+          </style>
         </head>
-        <body style="text-align: center; font-family: Arial;">
-          <h2>QR Code ainda não disponível</h2>
-          <p>Tentando novamente em 5 segundos...</p>
-          <p><a href="/qr">Clique aqui</a> para tentar manualmente.</p>
+        <body>
+          <p>Aguarde, gerando QR code...</p>
+          <p><small>Atualizando em 5 segundos...</small></p>
         </body>
       </html>
     `);
   }
 
-  await checkQR();
+  res.send(`
+    <html>
+      <head>
+        <title>WhatsApp QR Code</title>
+        <meta http-equiv="refresh" content="30">
+        <style>
+          body { font-family: Arial; text-align: center; padding: 20px; }
+          .qr { max-width: 256px; margin: 20px auto; }
+        </style>
+      </head>
+      <body>
+        <div class="qr">
+          <img src="${currentQR}" alt="QR Code" style="width: 100%"/>
+        </div>
+        <p><small>Atualizando em 30 segundos...</small></p>
+      </body>
+    </html>
+  `);
 });
 
 // Rota de status com timeout
