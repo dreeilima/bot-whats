@@ -20,25 +20,14 @@ services:
   # Serviço Node.js (WhatsApp)
   - type: web
     name: bot-whats
-    env: node
-    buildCommand: |
-      export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-      npm install --omit=dev
-    startCommand: node whatsapp-server.js
+    env: docker
+    dockerfilePath: ./Dockerfile
     envVars:
-      - key: NODE_VERSION
-        value: 20.x
       - key: NODE_ENV
         value: production
-      - key: PUPPETEER_SKIP_DOWNLOAD
-        value: "true"
     autoDeploy: true
     plan: free
     scaling:
       minInstances: 1
       maxInstances: 1
     healthCheckPath: /status
-    disk:
-      name: tmp
-      mountPath: /tmp
-      sizeGB: 1
