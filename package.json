@@ -7,14 +7,17 @@
     "npm": ">=10.2.4"
   },
   "dependencies": {
-    "color-name": "^1.1.4",
+    "color-name": "^2.0.0",
     "express": "^4.21.2",
     "node-fetch": "^2.7.0",
     "qrcode": "^1.5.4",
-    "sharp": "^0.32.6",
-    "venom-bot": "^5.3.0"
+    "sharp": "^0.33.2",
+    "venom-bot": "^5.0.21",
+    "glob": "^10.3.10",
+    "rimraf": "^5.0.5"
   },
   "scripts": {
-    "start": "node whatsapp-server.js"
+    "start": "node whatsapp-server.js",
+    "postinstall": "node node_modules/puppeteer/install.js"
   }
 }

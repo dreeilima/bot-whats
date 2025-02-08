@@ -17,17 +17,21 @@ services:
       - key: WHATSAPP_API_URL
         value: https://bot-whats-9onh.onrender.com
 
-  # Serviço Node.js (Baileys)
+  # Serviço Node.js (WhatsApp)
   - type: web
     name: bot-whats
     env: node
-    buildCommand: npm install
+    buildCommand: |
+      npm install --force
+      npm run postinstall
     startCommand: node whatsapp-server.js
     envVars:
       - key: NODE_VERSION
         value: 20.x
       - key: NODE_ENV
         value: production
+      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+        value: true
     autoDeploy: true
     numInstances: 1
     plan: free
