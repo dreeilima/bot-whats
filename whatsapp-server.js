@@ -157,8 +157,8 @@ app.get("/", (req, res) => {
   `);
 });
 
-// Rota para usuários
-app.get("/whatsapp/qr", (req, res) => {
+// Rota para usuários (adiciona ambas as rotas)
+app.get(["/qr", "/whatsapp/qr"], (req, res) => {
   // Gera QR code para o número do WhatsApp
   const phoneNumber = "5511965905750"; // Adiciona o código do país
   const whatsappUrl = `https://wa.me/${phoneNumber}?text=oi`;
