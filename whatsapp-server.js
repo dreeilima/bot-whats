@@ -160,7 +160,7 @@ app.get("/", (req, res) => {
 // Rota para usuários
 app.get("/whatsapp/qr", (req, res) => {
   // Gera QR code para o número do WhatsApp
-  const phoneNumber = "11965905750"; // Seu número
+  const phoneNumber = "5511965905750"; // Adiciona o código do país
   const whatsappUrl = `https://wa.me/${phoneNumber}?text=oi`;
 
   qrcode.toDataURL(whatsappUrl, (err, qrImage) => {
@@ -308,5 +308,5 @@ app.get("/status", (req, res) => {
 
 // Inicia o servidor
 app.listen(PORT, () => {
-  console.log(`\n🚀 Servidor rodando na porta ${PORT}`);
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
