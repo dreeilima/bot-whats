@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "whatsapp-server.js",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.11.0",
+    "npm": ">=10.2.4"
   },
   "dependencies": {
     "express": "^4.17.1",
