@@ -3,21 +3,15 @@
   "version": "1.0.0",
   "main": "whatsapp-server.js",
   "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=10.2.4"
+    "node": ">=18.0.0"
   },
   "dependencies": {
-    "color-name": "^2.0.0",
     "express": "^4.21.2",
     "node-fetch": "^2.7.0",
     "qrcode": "^1.5.4",
-    "sharp": "^0.33.2",
-    "venom-bot": "^5.0.21",
-    "glob": "^10.3.10",
-    "rimraf": "^5.0.5"
+    "venom-bot": "^5.0.21"
   },
   "scripts": {
-    "start": "node whatsapp-server.js",
-    "postinstall": "node node_modules/puppeteer/install.js"
+    "start": "node whatsapp-server.js"
   }
 }

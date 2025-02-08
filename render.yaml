@@ -22,18 +22,17 @@ services:
     name: bot-whats
     env: node
     buildCommand: |
-      npm install --force
-      npm run postinstall
+      export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+      npm install --omit=dev
     startCommand: node whatsapp-server.js
     envVars:
       - key: NODE_VERSION
         value: 20.x
       - key: NODE_ENV
         value: production
-      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
-        value: true
+      - key: PUPPETEER_SKIP_DOWNLOAD
+        value: "true"
     autoDeploy: true
-    numInstances: 1
     plan: free
     scaling:
       minInstances: 1
@@ -42,4 +41,4 @@ services:
     disk:
       name: tmp
       mountPath: /tmp
-      sizeGB: 0.5
+      sizeGB: 1
