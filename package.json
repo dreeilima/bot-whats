@@ -2,6 +2,9 @@
   "name": "whatsapp-server",
   "version": "1.0.0",
   "main": "whatsapp-server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "express": "^4.17.1",
     "venom-bot": "^5.0.21",

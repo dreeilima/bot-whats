@@ -31,7 +31,8 @@ ENV PYTHONUNBUFFERED=1
 # Comando para iniciar
 CMD ["python", "setup.py"]
 
-FROM node:16-slim
+FROM node:18-slim
+
 
 WORKDIR /app
 

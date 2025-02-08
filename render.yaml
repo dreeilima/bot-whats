@@ -24,6 +24,8 @@ services:
     buildCommand: npm install
     startCommand: node whatsapp-server.js
     envVars:
+      - key: NODE_VERSION
+        value: 18.x
       - key: PORT
         value: 3001
     autoDeploy: true
