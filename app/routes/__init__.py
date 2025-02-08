@@ -10,12 +10,9 @@ from .auth import router as auth_router
 from .users import router as user_router
 from .finance import router as finance_router
 
-# Lista de routers
+# Lista de routers para registrar
 routers = [
     whatsapp_router,
-    auth_router,
-    user_router, 
-    finance_router
 ]
 
 __all__ = ["routers"]

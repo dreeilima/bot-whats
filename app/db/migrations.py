@@ -5,7 +5,8 @@ import logging
 def run_migrations():
     """Executa migrações necessárias no banco de dados"""
     try:
-        with engine.connect() as conn:
+        # Usa begin() para gerenciar a transação automaticamente
+        with engine.begin() as conn:
             # Recria as tabelas (com aspas duplas no "user")
             tables = [
                 'bill',
@@ -23,7 +24,7 @@ def run_migrations():
                 except Exception as e:
                     logging.warning(f"Erro ao remover {table}: {str(e)}")
             
-            conn.commit()
+            # Não precisa do commit, o begin() já gerencia a transação
             logging.info("Tabelas antigas removidas")
             
             # As novas tabelas serão criadas automaticamente pelo SQLModel

@@ -7,8 +7,13 @@ const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
-let currentQR = "";
+let currentQR = null;
 let clientReady = false;
+
+// Ajuste a URL do webhook baseado no ambiente
+const webhookUrl = process.env.NODE_ENV === 'production'
+  ? 'https://finbot-api-9onh.onrender.com/webhook'  // URL de produção
+  : 'http://localhost:8000/webhook';  // URL local
 
 // Função para iniciar o cliente
 function start(client) {
@@ -20,32 +25,42 @@ function start(client) {
     if (message.isGroupMsg) return;
 
     try {
-      // Envia para o webhook local
-      const response = await fetch(
-        "https://bot-whats-9onh.onrender.com/webhook",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: {
-              from: message.from.replace("@c.us", ""),
-              text: message.body,
-            },
-          }),
-        }
-      );
+      console.log("📩 Mensagem recebida:", message.body);
+      
+      const payload = {
+        message: {
+          from: message.from.replace("@c.us", ""),
+          text: message.body,
+        },
+      };
+      
+      console.log("📤 Enviando para webhook:", payload);
 
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify(payload),
+      });
+
+      console.log("📥 Status do webhook:", response.status);
+      
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Detalhes do erro:', errorText);
         throw new Error(`Webhook respondeu com status ${response.status}`);
       }
 
-      // Se tiver resposta, envia de volta
       const data = await response.json();
+      console.log("📥 Resposta do webhook:", data);
+
       if (data.message) {
         await client.sendText(message.from, data.message);
+        console.log("✅ Resposta enviada:", data.message);
       }
 
-      console.log("✅ Mensagem processada");
     } catch (error) {
       console.error("❌ Erro ao processar mensagem:", error);
     }
@@ -78,18 +93,16 @@ venom
   .create({
     session: "finbot",
     multidevice: true,
-    headless: true,
+    headless: "new",
     debug: false,
-    logQR: false,
+    logQR: true,
     disableWelcome: true,
-    catchQR: (qr) => {
-      // Gera QR code para web
-      qrcode.toDataURL(qr, (err, url) => {
-        if (!err) {
-          currentQR = url;
-          console.log("🔄 Novo QR code gerado");
-        }
-      });
+    catchQR: (base64Qr, asciiQR, attempts) => {
+      // Armazena o QR code diretamente em base64
+      currentQR = base64Qr;
+      console.log('QR Code gerado:', attempts, 'tentativa');
+      // Opcional: mostra QR no terminal
+      console.log(asciiQR);
     },
   })
   .then((client) => start(client))
@@ -103,28 +116,42 @@ app.get("/", (req, res) => {
     <html>
       <head>
         <title>FinBot Admin</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-          body { font-family: Arial; text-align: center; padding: 20px; }
-          .status { padding: 10px; margin: 20px 0; border-radius: 5px; }
-          .connected { background: #d4edda; color: #155724; }
-          .disconnected { background: #f8d7da; color: #721c24; }
+          body { 
+            font-family: Arial; 
+            text-align: center; 
+            padding: 20px; 
+            background: #f5f5f5;
+          }
+          .qr-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin: 20px auto;
+            max-width: 400px;
+          }
+          img {
+            max-width: 100%;
+            height: auto;
+          }
         </style>
       </head>
       <body>
-        <h1>🔧 FinBot Admin</h1>
+        <h1>🤖 FinBot Admin</h1>
         
-        <div class="status ${clientReady ? "connected" : "disconnected"}">
-          Status: ${clientReady ? "CONECTADO" : "DESCONECTADO"}
+        <div class="qr-container">
+          ${
+            clientReady
+              ? `<h2>✅ Bot Conectado!</h2>`
+              : currentQR
+                ? `<h2>📱 Escaneie o QR Code</h2>
+                   <img src="${currentQR}" alt="QR Code" />`
+                : `<h2>⏳ Gerando QR Code...</h2>
+                   <p>Aguarde um momento...</p>`
+          }
         </div>
-
-        ${
-          clientReady
-            ? `<p>✅ Bot está online!</p>
-               <p>Compartilhe o link: <br>
-               <code>https://bot-whats-9onh.onrender.com/whatsapp/qr</code></p>`
-            : `<p>Escaneie o QR Code para conectar:</p>
-               <img src="${currentQR}" alt="QR Code" style="max-width: 300px"/>`
-        }
       </body>
     </html>
   `);
@@ -132,27 +159,8 @@ app.get("/", (req, res) => {
 
 // Rota para usuários
 app.get("/whatsapp/qr", (req, res) => {
-  if (!clientReady) {
-    return res.send(`
-      <html>
-        <head>
-          <title>FinBot Indisponível</title>
-          <meta http-equiv="refresh" content="30">
-          <style>
-            body { font-family: Arial; text-align: center; padding: 20px; }
-          </style>
-        </head>
-        <body>
-          <h2>⚠️ Bot Offline</h2>
-          <p>O FinBot está temporariamente indisponível.<br>
-          Tente novamente em alguns minutos.</p>
-        </body>
-      </html>
-    `);
-  }
-
   // Gera QR code para o número do WhatsApp
-  const phoneNumber = "5511965905750"; // Seu número
+  const phoneNumber = "11965905750"; // Seu número
   const whatsappUrl = `https://wa.me/${phoneNumber}?text=oi`;
 
   qrcode.toDataURL(whatsappUrl, (err, qrImage) => {
@@ -164,32 +172,87 @@ app.get("/whatsapp/qr", (req, res) => {
       <html>
         <head>
           <title>FinBot - Seu Assistente Financeiro</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
-            body { font-family: Arial; text-align: center; padding: 20px; }
-            .qr-container { margin: 30px 0; }
-            .qr-code { max-width: 300px; }
-            .commands { text-align: left; max-width: 500px; margin: 30px auto; }
+            body { 
+              font-family: Arial, sans-serif; 
+              text-align: center; 
+              padding: 20px;
+              background: #f5f5f5;
+              line-height: 1.6;
+            }
+            .container {
+              max-width: 600px;
+              margin: 0 auto;
+            }
+            .qr-container {
+              background: white;
+              padding: 30px;
+              border-radius: 15px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              margin: 20px 0;
+            }
+            .commands {
+              background: white;
+              padding: 30px;
+              border-radius: 15px;
+              text-align: left;
+              margin: 20px 0;
+            }
+            img {
+              max-width: 300px;
+              height: auto;
+              margin: 20px 0;
+            }
+            .button {
+              display: inline-block;
+              background: #25D366;
+              color: white;
+              padding: 12px 30px;
+              border-radius: 25px;
+              text-decoration: none;
+              font-weight: bold;
+              margin: 10px 0;
+              transition: all 0.3s ease;
+            }
+            .button:hover {
+              background: #128C7E;
+              transform: translateY(-2px);
+            }
+            code {
+              background: #f8f9fa;
+              padding: 3px 6px;
+              border-radius: 4px;
+              font-size: 0.9em;
+            }
           </style>
         </head>
         <body>
-          <h1>🤖 FinBot - Seu Assistente Financeiro</h1>
-          
-          <div class="qr-container">
-            <h2>📱 Conecte-se ao FinBot</h2>
-            <p>Escaneie o QR code ou clique nele para abrir o WhatsApp:</p>
-            <a href="${whatsappUrl}" target="_blank">
-              <img src="${qrImage}" alt="WhatsApp QR Code" class="qr-code"/>
-            </a>
-          </div>
+          <div class="container">
+            <h1>🤖 FinBot</h1>
+            <p>Seu assistente financeiro pessoal</p>
 
-          <div class="commands">
-            <h3>📝 Comandos disponíveis:</h3>
-            <ul>
-              <li><code>/saldo</code> - Ver saldo atual</li>
-              <li><code>/receita 1000 Salário #salario</code></li>
-              <li><code>/despesa 50 Almoço #alimentacao</code></li>
-              <li><code>/extrato</code> - Ver últimas transações</li>
-            </ul>
+            <div class="qr-container">
+              <h2>📱 Conecte-se ao FinBot</h2>
+              <p>Escaneie o QR code ou clique no botão abaixo:</p>
+              
+              <img src="${qrImage}" alt="QR Code para WhatsApp"/>
+              
+              <a href="${whatsappUrl}" class="button" target="_blank">
+                Iniciar Conversa ↗
+              </a>
+            </div>
+
+            <div class="commands">
+              <h2>📝 Comandos Disponíveis</h2>
+              <ul>
+                <li><code>/ajuda</code> - Lista todos os comandos</li>
+                <li><code>/saldo</code> - Ver saldo atual</li>
+                <li><code>/despesa 50 Almoço #alimentacao</code></li>
+                <li><code>/receita 1000 Salário #salario</code></li>
+                <li><code>/extrato</code> - Ver últimas transações</li>
+              </ul>
+            </div>
           </div>
         </body>
       </html>
