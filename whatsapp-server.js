@@ -28,33 +28,56 @@ const webhookUrl =
 // No início do arquivo, após os requires
 console.log("🚀 Iniciando servidor...");
 
+// Configurações do Venom para produção
+const venomOptions = {
+  session: "finbot-session",
+  headless: true,
+  useChrome: false,
+  debug: false,
+  logQR: true,
+  browserArgs: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-accelerated-2d-canvas",
+    "--no-first-run",
+    "--no-zygote",
+    "--single-process", // <- this one doesn't works in Windows
+    "--disable-gpu",
+  ],
+  puppeteerOptions: {
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-accelerated-2d-canvas",
+      "--no-first-run",
+      "--no-zygote",
+      "--single-process",
+      "--disable-gpu",
+    ],
+  },
+  createPathFileToken: true,
+  waitForLogin: true,
+  catchQR: (base64Qr) => {
+    console.log("📱 Novo QR Code gerado");
+    currentQR = base64Qr;
+  },
+  statusFind: (statusSession) => {
+    console.log("Status da Sessão:", statusSession);
+    if (statusSession === "inChat" || statusSession === "isLogged") {
+      console.log("✅ WhatsApp conectado!");
+      clientReady = true;
+      currentQR = null;
+    }
+  },
+};
+
 // Função para inicializar o cliente WhatsApp
 async function initializeWhatsApp() {
   try {
     console.log("🚀 Iniciando cliente WhatsApp...");
-
-    client = await create({
-      session: "finbot-session",
-      headless: true,
-      useChrome: false,
-      debug: false,
-      logQR: true,
-      browserArgs: ["--no-sandbox", "--disable-setuid-sandbox"],
-      createPathFileToken: true,
-      waitForLogin: true,
-      catchQR: (base64Qr) => {
-        console.log("📱 Novo QR Code gerado");
-        currentQR = base64Qr;
-      },
-      statusFind: (statusSession) => {
-        console.log("Status da Sessão:", statusSession);
-        if (statusSession === "inChat" || statusSession === "isLogged") {
-          console.log("✅ WhatsApp conectado!");
-          clientReady = true;
-          currentQR = null;
-        }
-      },
-    });
+    client = await create(venomOptions);
 
     // Configurar listener de mensagens
     client.onMessage(async (message) => {
@@ -112,10 +135,8 @@ async function initializeWhatsApp() {
       }
     });
   } catch (error) {
-    console.error("❌ Erro ao inicializar cliente:", error);
-    clientReady = false;
-    // Tenta reiniciar após erro
-    setTimeout(initializeWhatsApp, 5000);
+    console.error("❌ Erro ao iniciar cliente:", error);
+    setTimeout(initializeWhatsApp, 5000); // Tenta reconectar após 5 segundos
   }
 }
 
