@@ -1,14 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from sqlmodel import Session
-from typing import Dict
+from typing import Dict, Optional
 from pydantic import BaseModel
 import logging
+import os
 
 from app.db.session import get_db
-from app.services.whatsapp import whatsapp_service
+from app.services.whatsapp import whatsapp_service, WhatsAppService
+from app.config import WHATSAPP_NUMBER
 
 router = APIRouter(tags=["whatsapp"])
 logger = logging.getLogger(__name__)
+whatsapp_service = WhatsAppService()
+
+# Configura templates
+templates = Jinja2Templates(directory="app/templates")
 
 class MessageRequest(BaseModel):
     phone: str
@@ -42,32 +50,64 @@ async def webhook(request: WebhookRequest):
         logger.exception(e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/send-message")  # Rota para enviar mensagens
-async def send_whatsapp_message(message_data: MessageRequest):
-    """
-    Enviar mensagem via WhatsApp
-    
-    O número deve estar no formato: 11999999999 (DDD + número)
-    A mensagem pode conter texto livre
-    """
+@router.get("/qr")
+async def get_qr():
+    """Obter QR code para conexão do WhatsApp"""
     try:
-        success = whatsapp_service.send_message(
-            message_data.phone,
-            message_data.message
-        )
-        
-        if success:
+        qr = whatsapp_service.get_qr_code()
+        if qr:
             return {
                 "status": "success",
-                "message": f"Mensagem enviada para {message_data.phone}"
+                "qr": qr
             }
-        else:
-            raise HTTPException(
-                status_code=500,
-                detail="Erro ao enviar mensagem"
-            )
+        return {
+            "status": "error",
+            "message": "QR Code não disponível"
+        }
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=str(e)
-        ) 
+        )
+
+@router.post("/send-message")
+async def send_message(message: MessageRequest):
+    """Enviar mensagem via WhatsApp"""
+    try:
+        success = await whatsapp_service.send_message(
+            message.phone,
+            message.message
+        )
+        if success:
+            return {
+                "status": "success",
+                "message": f"Mensagem enviada para {message.phone}"
+            }
+        raise HTTPException(
+            status_code=500,
+            detail="Erro ao enviar mensagem"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+@router.get("/admin/connect", response_class=HTMLResponse)
+async def admin_connect_page(request: Request):
+    """Página administrativa para conectar o BOT ao WhatsApp"""
+    return templates.TemplateResponse(
+        "admin_connect.html",
+        {"request": request}
+    )
+
+@router.get("/connect", response_class=HTMLResponse)
+async def user_connect_page(request: Request):
+    """Página para usuários se conectarem ao BOT"""
+    return templates.TemplateResponse(
+        "connect.html",
+        {
+            "request": request,
+            "whatsapp_number": WHATSAPP_NUMBER
+        }
+    ) 

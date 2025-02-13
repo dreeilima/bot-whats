@@ -5,9 +5,11 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const { Pool } = require("pg");
+const cors = require("cors");
 
 const app = express();
 app.use(express.json());
+app.use(cors());
 
 const PORT = process.env.PORT || 3001; // Usa a porta do ambiente ou 3001 como fallback
 let currentQR = null;
@@ -38,11 +40,11 @@ console.log("🔗 Webhook URL:", webhookUrl);
 // No início do arquivo, após os requires
 console.log("🚀 Iniciando servidor...");
 
-// Adiciona conexão com PostgreSQL
+// Ajuste na conexão com o banco
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false,
+    rejectUnauthorized: false, // Permite certificados self-signed
   },
 });
 
@@ -409,6 +411,38 @@ app.listen(PORT, () => {
   console.log(`🚀 Servidor WhatsApp rodando na porta ${PORT}`);
   console.log("⏳ Iniciando cliente WhatsApp...");
   initializeWhatsApp();
+});
+
+// Adiciona rota de status
+app.get("/status", (req, res) => {
+  res.json({
+    status: "online",
+    whatsapp: clientReady ? "connected" : "disconnected",
+  });
+});
+
+// Melhora rota do QR code
+app.get(["/qr", "/whatsapp/qr"], (req, res) => {
+  if (clientReady) {
+    return res.json({
+      status: "success",
+      connected: true,
+      message: "WhatsApp já está conectado",
+    });
+  }
+
+  if (currentQR) {
+    return res.json({
+      status: "success",
+      connected: false,
+      qr: currentQR,
+    });
+  }
+
+  return res.json({
+    status: "error",
+    message: "QR Code ainda não disponível",
+  });
 });
 
 // Tratamento de erros

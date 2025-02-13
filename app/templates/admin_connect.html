@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>FinBot - Conectar WhatsApp</title>
+    <title>FinBot - Admin WhatsApp</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body {
@@ -21,30 +21,19 @@
         }
         .qr-container {
             margin: 20px 0;
+            padding: 20px;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
         }
         .qr-code img {
             max-width: 300px;
             height: auto;
         }
-        .whatsapp-button {
-            display: inline-block;
-            background: #25D366;
-            color: white;
-            padding: 12px 30px;
-            border-radius: 25px;
-            text-decoration: none;
-            font-weight: bold;
-            margin: 20px 0;
-            transition: all 0.3s ease;
-        }
-        .whatsapp-button:hover {
-            background: #128C7E;
-            transform: translateY(-2px);
-        }
         .status {
             margin: 20px 0;
             padding: 10px;
             border-radius: 5px;
+            background: #e8f5e9;
         }
         .loading {
             border: 4px solid #f3f3f3;
@@ -59,12 +48,22 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .admin-badge {
+            background: #ff5722;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            margin-bottom: 20px;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <span class="admin-badge">ADMIN</span>
         <h1>🤖 FinBot</h1>
-        <p>Conecte seu WhatsApp para começar a usar!</p>
+        <p>Conecte o WhatsApp do BOT escaneando o QR Code abaixo</p>
         
         <div class="qr-container">
             <div id="qrcode" class="qr-code">
@@ -73,32 +72,38 @@
         </div>
 
         <div id="status" class="status">
-            Aguardando conexão...
+            Aguardando conexão do WhatsApp...
         </div>
-
-        <a href="https://wa.me/{{ whatsapp_number }}" class="whatsapp-button" target="_blank">
-            💬 Abrir WhatsApp
-        </a>
     </div>
 
     <script>
-        // Atualiza QR code a cada 5 segundos
         function updateQRCode() {
             fetch('/whatsapp/qr')
                 .then(response => response.json())
                 .then(data => {
-                    if (data.qr) {
+                    const statusDiv = document.getElementById('status');
+                    if (data.connected) {
+                        document.getElementById('qrcode').innerHTML = 
+                            '<h3>✅ BOT Conectado!</h3>';
+                        statusDiv.style.background = '#e8f5e9';
+                        statusDiv.innerHTML = '✅ WhatsApp conectado com sucesso!';
+                    } else if (data.qr) {
                         document.getElementById('qrcode').innerHTML = 
                             `<img src="${data.qr}" alt="QR Code">`;
-                    } else if (data.connected) {
-                        document.getElementById('qrcode').innerHTML = 
-                            '<h3>✅ Bot Conectado!</h3>';
+                        statusDiv.style.background = '#fff3e0';
+                        statusDiv.innerHTML = '⏳ Aguardando escaneamento do QR Code...';
+                    } else {
+                        statusDiv.style.background = '#ffebee';
+                        statusDiv.innerHTML = '❌ Erro ao obter QR Code';
                     }
                 })
-                .catch(error => console.error('Erro:', error));
+                .catch(error => {
+                    console.error('Erro:', error);
+                    document.getElementById('status').innerHTML = 
+                        '❌ Erro ao conectar com o servidor';
+                });
         }
 
-        // Atualiza inicialmente e a cada 5 segundos
         updateQRCode();
         setInterval(updateQRCode, 5000);
     </script>

@@ -14,7 +14,12 @@ config = get_config
 
 # Carrega configurações principais
 ENVIRONMENT = config("ENVIRONMENT", default="development")
-DATABASE_URL = config("DATABASE_URL")
+DATABASE_URL = config("DATABASE_URL", default="sqlite:///./test.db")
+
+# Adiciona parâmetros SSL para o PostgreSQL
+if "postgresql" in DATABASE_URL:
+    DATABASE_URL = f"{DATABASE_URL}?sslmode=require"
+
 WHATSAPP_NUMBER = config("WHATSAPP_NUMBER")
 WHATSAPP_WEBHOOK_SECRET = config("WHATSAPP_WEBHOOK_SECRET")
 

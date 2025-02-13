@@ -1,23 +1,27 @@
 import logging
 import requests
 from app.config import config
+import os
+import httpx
 
 logger = logging.getLogger(__name__)
 
 class WhatsAppService:
     def __init__(self):
         self.phone_number = config("WHATSAPP_NUMBER")
-        self.api_url = config("WHATSAPP_API_URL")
+        self.api_url = "http://localhost:3001"  # URL do servidor Node.js
+        if os.getenv("NODE_ENV") == "production":
+            self.api_url = "https://bot-whats-9onh.onrender.com"
         self.qr_code = None
         logger.info(f"Iniciando WhatsApp com número: {self.phone_number}")
         
-    def get_qr_code(self):
+    async def get_qr_code(self):
         """Obtém QR code do servidor Node.js"""
         try:
-            response = requests.get(f"{self.api_url}/whatsapp/qr")
-            if response.status_code == 200:
-                return response.text
-            return None
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{self.api_url}/whatsapp/qr")
+                data = response.json()
+                return data.get("qr")
         except Exception as e:
             logger.error(f"Erro ao obter QR code: {str(e)}")
             return None
