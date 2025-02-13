@@ -101,32 +101,33 @@ async def send_message(message: MessageRequest):
         )
 
 @router.get("/admin/connect", response_class=HTMLResponse)
-async def admin_connect_page(request: Request):
-    """Página administrativa para conectar o BOT ao WhatsApp"""
-    logger.info("🔐 Página admin solicitada")
+async def admin_connect(request: Request):
+    logger.info("🔐 Acesso à página admin")
     try:
         return templates.TemplateResponse(
             "admin_connect.html",
             {"request": request}
         )
     except Exception as e:
-        logger.error(f"❌ Erro ao renderizar página admin: {str(e)}")
-        logger.exception(e)
+        logger.error(f"❌ Erro na página admin: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/connect", response_class=HTMLResponse)
-async def user_connect_page(request: Request):
-    """Página para usuários se conectarem ao BOT"""
-    logger.info("👤 Página usuário solicitada")
+async def user_connect(request: Request):
+    logger.info("👤 Acesso à página usuário")
     try:
         return templates.TemplateResponse(
             "connect.html",
             {
                 "request": request,
-                "whatsapp_number": WHATSAPP_NUMBER
+                "whatsapp_number": os.getenv("WHATSAPP_NUMBER")
             }
         )
     except Exception as e:
-        logger.error(f"❌ Erro ao renderizar página usuário: {str(e)}")
-        logger.exception(e)
-        raise HTTPException(status_code=500, detail=str(e)) 
+        logger.error(f"❌ Erro na página usuário: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/test")
+async def test():
+    logger.info("🧪 Teste de rota")
+    return {"status": "ok", "message": "Rota de teste funcionando"} 

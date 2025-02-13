@@ -489,6 +489,28 @@ app.get(["/qr", "/whatsapp/qr"], (req, res) => {
   });
 });
 
+// Adiciona proxy para o FastAPI
+app.use("/whatsapp", (req, res, next) => {
+  console.log(`📥 Requisição para FastAPI: ${req.method} ${req.path}`);
+  // Proxy para o FastAPI
+  axios
+    .request({
+      method: req.method,
+      url: `${process.env.FASTAPI_URL || "http://localhost:8000"}/whatsapp${
+        req.path
+      }`,
+      data: req.body,
+      headers: req.headers,
+    })
+    .then((response) => {
+      res.status(response.status).send(response.data);
+    })
+    .catch((error) => {
+      console.error("❌ Erro no proxy:", error);
+      res.status(500).send("Erro interno do servidor");
+    });
+});
+
 // Log todas as requisições
 app.use((req, res, next) => {
   console.log(`📥 ${req.method} ${req.path}`);

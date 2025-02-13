@@ -13,7 +13,10 @@ import os
 from app.database import init_db
 
 # Configura logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 # Configura diretórios
@@ -44,8 +47,9 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
 # Rota raiz redirecionando para docs
-@app.get("/", include_in_schema=False)
+@app.get("/")
 async def root():
+    logger.info("👋 Acesso à rota raiz")
     return RedirectResponse(url="/docs")
 
 # Rota de status
@@ -58,15 +62,13 @@ async def status():
 
 # Importa e registra as rotas
 from app.routes.whatsapp import router as whatsapp_router
-logger.info(f"🔄 Registrando router WhatsApp: {whatsapp_router}")
+logger.info("🔄 Registrando rotas WhatsApp")
 app.include_router(whatsapp_router, prefix="/whatsapp", tags=["whatsapp"])
 
 @app.get("/health")
-def health():
-    return {
-        "message": "success",
-        "response": "ok"
-    }
+async def health():
+    logger.info("💓 Verificação de saúde")
+    return {"status": "healthy"}
 
 # Eventos
 @app.on_event("startup")
@@ -80,6 +82,10 @@ async def startup():
         logger.error(f"❌ Erro na inicialização: {e}")
         logger.exception(e)
         raise
+
+# Log de inicialização
+logger.info("🚀 Aplicação iniciada")
+logger.info(f"📁 Diretório de templates: {TEMPLATES_DIR}")
 
 if __name__ == "__main__":
     import uvicorn
