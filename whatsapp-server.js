@@ -84,14 +84,15 @@ async function initializeWhatsApp() {
 
       try {
         console.log("📩 Mensagem recebida:", message.body);
-
-        // Adiciona mais logs para debug
         console.log("🔗 Usando webhook:", webhookUrl);
 
+        // Ajusta estrutura do payload conforme API Python espera
         const payload = {
-          message: {
+          type: "message",
+          data: {
             from: message.from.replace("@c.us", ""),
             text: message.body,
+            timestamp: message.timestamp,
           },
         };
 
@@ -105,9 +106,6 @@ async function initializeWhatsApp() {
             Accept: "application/json",
           },
           data: payload,
-          validateStatus: function (status) {
-            return status >= 200 && status < 500;
-          },
         });
 
         console.log("📥 Status da resposta:", response.status);
@@ -267,15 +265,43 @@ whatsappRouter.get("/conversar", (req, res) => {
             display: inline-block;
             margin-top: 20px;
           }
+          .qr-code {
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 300px;
+          }
+          .qr-code img {
+            max-width: 100%;
+            height: auto;
+          }
+          .or-divider {
+            margin: 20px 0;
+            font-size: 18px;
+            color: #666;
+          }
         </style>
       </head>
       <body>
         <div class="container">
           <h1>💬 Conversar com FinBot</h1>
-          <p>Clique no botão abaixo para iniciar uma conversa com o FinBot no WhatsApp</p>
-          <a href="https://wa.me/${BOT_NUMBER}" class="whatsapp-button" target="_blank">
-            Iniciar Conversa
-          </a>
+          
+          <div class="qr-code">
+            <h2>Opção 1: Escaneie o QR Code</h2>
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://wa.me/${BOT_NUMBER}" alt="QR Code WhatsApp"/>
+          </div>
+
+          <div class="or-divider">- OU -</div>
+
+          <div>
+            <h2>Opção 2: Clique no botão</h2>
+            <p>Para iniciar uma conversa com o FinBot no WhatsApp</p>
+            <a href="https://wa.me/${BOT_NUMBER}" class="whatsapp-button" target="_blank">
+              Iniciar Conversa
+            </a>
+          </div>
         </div>
       </body>
     </html>
