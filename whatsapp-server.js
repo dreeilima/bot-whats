@@ -4,6 +4,7 @@ const qrcode = require("qrcode");
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
+const { Pool } = require("pg");
 
 const app = express();
 app.use(express.json());
@@ -13,11 +14,11 @@ let currentQR = null;
 let clientReady = false;
 let client = null;
 
-// Configurações de sessão
+// Configurações de sessão mais robustas
 const SESSION_DIR =
   process.env.NODE_ENV === "production"
     ? "/app/sessions" // Diretório persistente no Render
-    : "./sessions"; // Diretório local para desenvolvimento
+    : "./sessions"; // Local para desenvolvimento
 
 // Garante que o diretório de sessões existe
 if (!fs.existsSync(SESSION_DIR)) {
@@ -37,40 +38,26 @@ console.log("🔗 Webhook URL:", webhookUrl);
 // No início do arquivo, após os requires
 console.log("🚀 Iniciando servidor...");
 
-// Configurações do Venom para produção
-const venomOptions = {
-  session: "finbot-session",
-  headless: true,
-  useChrome: false,
-  debug: false,
-  logQR: true,
-  createPathFileToken: true,
-  folderNameToken: SESSION_DIR,
-  browserArgs: [
-    "--no-sandbox",
-    "--disable-setuid-sandbox",
-    "--disable-dev-shm-usage",
-    "--disable-accelerated-2d-canvas",
-    "--no-first-run",
-    "--no-zygote",
-    "--single-process",
-    "--disable-gpu",
-  ],
-  catchQR: (base64Qr, asciiQR) => {
-    console.log("\n\n==== QR CODE ====\n");
-    console.log(asciiQR); // Exibe QR code em ASCII no console
-    console.log("\n================\n");
-    currentQR = base64Qr;
+// Adiciona conexão com PostgreSQL
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false,
   },
-  statusFind: (statusSession) => {
-    console.log("Status da Sessão:", statusSession);
-    if (statusSession === "inChat" || statusSession === "isLogged") {
-      console.log("✅ WhatsApp conectado!");
-      clientReady = true;
-      currentQR = null;
-    }
-  },
-};
+});
+
+// No início do arquivo
+const authenticatedUsers = new Set();
+
+// Função para verificar autenticação
+function isAuthenticated(userId) {
+  return authenticatedUsers.has(userId);
+}
+
+// Função para autenticar usuário
+function authenticateUser(userId) {
+  authenticatedUsers.add(userId);
+}
 
 // Função para inicializar o cliente WhatsApp
 async function initializeWhatsApp() {
@@ -86,7 +73,7 @@ async function initializeWhatsApp() {
         console.log("📩 Mensagem recebida:", message.body);
 
         // Processa a mensagem
-        const response = processMessage(message.body, message.from);
+        const response = await processMessage(message.body, message.from);
 
         // Envia resposta
         await client.sendText(message.from, response);
@@ -106,309 +93,318 @@ async function initializeWhatsApp() {
 }
 
 // Função para processar mensagem e retornar resposta
-function processMessage(text, from) {
-  // Converte para minúsculo para comparação
-  const command = text.toLowerCase().trim();
+async function processMessage(text, from) {
+  const userId = from.replace("@c.us", "");
 
-  // Comandos básicos
-  if (command === "oi" || command === "olá" || command === "ola") {
-    return (
-      "Olá! Eu sou o FinBot 🤖\nPosso te ajudar com:\n\n" +
-      "📝 /receita [valor] [descrição] #categoria\n" +
-      "💰 /despesa [valor] [descrição] #categoria\n" +
-      "📊 /relatorio [diario|semanal|mensal]\n" +
-      "❓ /ajuda - para ver todos os comandos"
+  try {
+    // Verifica se usuário existe
+    const userResult = await pool.query(
+      "SELECT * FROM users WHERE phone = $1",
+      [userId]
     );
-  }
 
-  if (command === "/ajuda") {
-    return (
-      "Comandos disponíveis:\n\n" +
-      "📝 Registrar receita:\n" +
-      "/receita 100 Salário #trabalho\n\n" +
-      "💰 Registrar despesa:\n" +
-      "/despesa 50 Mercado #alimentacao\n\n" +
-      "📊 Ver relatórios:\n" +
-      "/relatorio diario\n" +
-      "/relatorio semanal\n" +
-      "/relatorio mensal"
-    );
-  }
+    // Se não existir, cria
+    if (userResult.rows.length === 0) {
+      await pool.query(
+        "INSERT INTO users (phone, created_at) VALUES ($1, NOW())",
+        [userId]
+      );
+    }
 
-  // Comandos de finanças
-  if (command.startsWith("/receita")) {
-    // TODO: Implementar lógica de receita
-    return "🎉 Receita registrada com sucesso!";
-  }
+    const command = text.toLowerCase().trim();
 
-  if (command.startsWith("/despesa")) {
-    // TODO: Implementar lógica de despesa
-    return "📝 Despesa registrada com sucesso!";
-  }
+    // Comandos básicos
+    if (command === "oi" || command === "olá" || command === "ola") {
+      return formatMenuInicial();
+    }
 
-  if (command.startsWith("/relatorio")) {
-    // TODO: Implementar lógica de relatório
-    return "📊 Aqui está seu relatório...";
-  }
+    if (command === "/ajuda") {
+      return formatMenuInicial();
+    }
 
-  // Se não reconhecer o comando
-  return "Desculpe, não entendi este comando. Digite /ajuda para ver as opções disponíveis.";
+    // Comando de saldo
+    if (command === "/saldo") {
+      const result = await pool.query(
+        `SELECT COALESCE(SUM(CASE WHEN type = 'receita' THEN amount ELSE -amount END), 0) as saldo 
+         FROM transactions WHERE user_id = $1`,
+        [userId]
+      );
+      return formatSaldo(result.rows[0].saldo);
+    }
+
+    // Comando de extrato
+    if (command === "/extrato") {
+      const result = await pool.query(
+        `SELECT type, amount, description, category, created_at as data
+         FROM transactions 
+         WHERE user_id = $1 
+         ORDER BY created_at DESC 
+         LIMIT 5`,
+        [userId]
+      );
+      return formatExtrato(result.rows);
+    }
+
+    // Comando de receita
+    if (command.startsWith("/receita")) {
+      const match = command.match(/\/receita (\d+\.?\d*) ([^#]+)(#\w+)?/);
+      if (!match) {
+        return "❌ Formato inválido. Use: /receita [valor] [descrição] #categoria";
+      }
+
+      const valor = parseFloat(match[1]);
+      const descricao = match[2].trim();
+      const categoria = (match[3] || "#geral").substring(1);
+
+      await pool.query(
+        "INSERT INTO transactions (user_id, type, amount, description, category) VALUES ($1, $2, $3, $4, $5)",
+        [userId, "receita", valor, descricao, categoria]
+      );
+
+      return `✅ Receita registrada!\n💰 Valor: ${formatMoney(
+        valor
+      )}\n📝 Descrição: ${descricao}\n🏷️ Categoria: ${categoria}`;
+    }
+
+    // Comando de despesa
+    if (command.startsWith("/despesa")) {
+      const match = command.match(/\/despesa (\d+\.?\d*) ([^#]+)(#\w+)?/);
+      if (!match) {
+        return "❌ Formato inválido. Use: /despesa [valor] [descrição] #categoria";
+      }
+
+      const valor = parseFloat(match[1]);
+      const descricao = match[2].trim();
+      const categoria = (match[3] || "#geral").substring(1);
+
+      // Verifica orçamento
+      const orcResult = await pool.query(
+        "SELECT valor FROM orcamentos WHERE user_id = $1 AND categoria = $2",
+        [userId, categoria]
+      );
+
+      if (orcResult.rows.length > 0) {
+        const limite = orcResult.rows[0].valor;
+        const gastosResult = await pool.query(
+          `SELECT SUM(amount) as total 
+           FROM transactions 
+           WHERE user_id = $1 
+           AND category = $2 
+           AND type = 'despesa' 
+           AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)`,
+          [userId, categoria]
+        );
+
+        const gastosMes = (gastosResult.rows[0].total || 0) + valor;
+        if (gastosMes > limite) {
+          return `⚠️ Atenção! Esta despesa ultrapassará seu limite de ${formatMoney(
+            limite
+          )} para #${categoria} este mês.`;
+        }
+      }
+
+      await pool.query(
+        "INSERT INTO transactions (user_id, type, amount, description, category) VALUES ($1, $2, $3, $4, $5)",
+        [userId, "despesa", valor, descricao, categoria]
+      );
+
+      return `✅ Despesa registrada!\n💸 Valor: ${formatMoney(
+        valor
+      )}\n📝 Descrição: ${descricao}\n🏷️ Categoria: ${categoria}`;
+    }
+
+    // Comando de categorias
+    if (command === "/categorias") {
+      const result = await pool.query(
+        "SELECT DISTINCT category FROM transactions WHERE user_id = $1",
+        [userId]
+      );
+      const categorias = new Set(result.rows.map((r) => r.category));
+      return formatCategorias(categorias);
+    }
+
+    // Comando de relatório
+    if (command.startsWith("/relatorio")) {
+      const tipo = command.split(" ")[1] || "diario";
+      const periodoQuery = {
+        diario:
+          "DATE_TRUNC('day', created_at) = DATE_TRUNC('day', CURRENT_DATE)",
+        semanal:
+          "DATE_TRUNC('week', created_at) = DATE_TRUNC('week', CURRENT_DATE)",
+        mensal:
+          "DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)",
+      }[tipo];
+
+      const result = await pool.query(
+        `SELECT 
+           COALESCE(SUM(CASE WHEN type = 'receita' THEN amount END), 0) as receitas,
+           COALESCE(SUM(CASE WHEN type = 'despesa' THEN amount END), 0) as despesas,
+           COALESCE(SUM(CASE WHEN type = 'receita' THEN amount ELSE -amount END), 0) as saldo
+         FROM transactions 
+         WHERE user_id = $1 AND ${periodoQuery}`,
+        [userId]
+      );
+
+      return formatRelatorio(tipo, result.rows[0]);
+    }
+
+    // Se não reconhecer o comando
+    return "❓ Comando não reconhecido. Digite /ajuda para ver as opções disponíveis.";
+  } catch (error) {
+    console.error("❌ Erro no banco:", error);
+    return "Desculpe, ocorreu um erro ao processar sua solicitação.";
+  }
 }
 
-// Adiciona prefixo para as rotas do WhatsApp
-const whatsappRouter = express.Router();
+// Função para formatar moeda
+function formatMoney(value) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
+}
 
-// Move a rota do QR Code para o router
-whatsappRouter.get("/", (req, res) => {
-  console.log("📱 Rota principal acessada");
-  res.send(`
-    <html>
-      <head>
-        <title>FinBot Admin</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { 
-            font-family: Arial; 
-            text-align: center; 
-            padding: 20px;
-            background: #f5f5f5;
-          }
-          .qr-container {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin: 20px auto;
-            max-width: 400px;
-          }
-          img {
-            max-width: 100%;
-            height: auto;
-          }
-          .error {
-            color: red;
-            margin: 10px 0;
-          }
-          .success {
-            color: green;
-            margin: 10px 0;
-          }
-          .qr-container img {
-            border: 10px solid white;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>🤖 FinBot Admin</h1>
-          
-          <div class="qr-container">
-            ${
-              clientReady
-                ? '<h2 class="success">✅ Bot Conectado!</h2>'
-                : currentQR
-                ? `<h2>📱 Escaneie o QR Code</h2>
-                     <img src="${currentQR}" alt="QR Code" />`
-                : `<h2 class="error">⏳ Gerando QR Code...</h2>
-                     <p>Se o QR Code não aparecer em 30 segundos, atualize a página.</p>`
-            }
-          </div>
+// Função para formatar data
+function formatDate(date) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
 
-          <div id="status"></div>
-          
-          <button onclick="location.reload()" class="whatsapp-button">
-            🔄 Atualizar QR Code
-          </button>
-        </div>
-
-        <script>
-          // Atualiza status a cada 5 segundos
-          setInterval(() => {
-            fetch('/whatsapp/status')
-              .then(res => res.json())
-              .then(data => {
-                const status = document.getElementById('status');
-                status.textContent = data.message || 'Aguardando...';
-              });
-          }, 5000);
-        </script>
-      </body>
-    </html>
-  `);
-});
-
-// Rota para obter o QR code atual
-whatsappRouter.get("/qr", (req, res) => {
-  if (currentQR) {
-    res.json({ qr: currentQR });
-  } else if (clientReady) {
-    res.json({ connected: true });
-  } else {
-    res.json({ error: "QR Code não disponível" });
+// Função para formatar extrato
+function formatExtrato(transacoes) {
+  if (transacoes.length === 0) {
+    return "📊 *Extrato*\n\n❌ Nenhuma transação encontrada.";
   }
-});
 
-// Número do WhatsApp do bot (com código do país)
-const BOT_NUMBER = "5511965905750";
+  const header =
+    "📊 *Extrato das Últimas Transações*\n" + "━━━━━━━━━━━━━━━━━━━━━\n\n";
 
-// Rota para usuários iniciarem conversa
-whatsappRouter.get("/conversar", (req, res) => {
-  res.send(`
-    <html>
-      <head>
-        <title>Conversar com FinBot</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { 
-            font-family: Arial; 
-            text-align: center; 
-            padding: 20px;
-            background: #f5f5f5;
-          }
-          .container {
-            max-width: 600px;
-            margin: 0 auto;
-          }
-          .whatsapp-button {
-            background: #25D366;
-            color: white;
-            padding: 15px 30px;
-            border-radius: 25px;
-            text-decoration: none;
-            font-size: 18px;
-            display: inline-block;
-            margin-top: 20px;
-          }
-          .qr-code {
-            margin: 20px auto;
-            padding: 20px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            max-width: 300px;
-          }
-          .qr-code img {
-            max-width: 100%;
-            height: auto;
-          }
-          .or-divider {
-            margin: 20px 0;
-            font-size: 18px;
-            color: #666;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>💬 Conversar com FinBot</h1>
-          
-          <div class="qr-code">
-            <h2>Opção 1: Escaneie o QR Code</h2>
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://wa.me/${BOT_NUMBER}" alt="QR Code WhatsApp"/>
-          </div>
+  const items = transacoes
+    .map((t) => {
+      const emoji = t.valor > 0 ? "📈" : "📉";
+      const valor = formatMoney(Math.abs(t.valor));
+      return (
+        `${emoji} *${t.descricao}*\n` +
+        ` Valor: ${valor}\n` +
+        `🏷️ Categoria: #${t.categoria}\n` +
+        `📅 Data: ${formatDate(t.data)}\n` +
+        "━━━━━━━━━━━━━━━━━━━━━"
+      );
+    })
+    .join("\n\n");
 
-          <div class="or-divider">- OU -</div>
+  return header + items;
+}
 
-          <div>
-            <h2>Opção 2: Clique no botão</h2>
-            <p>Para iniciar uma conversa com o FinBot no WhatsApp</p>
-            <a href="https://wa.me/${BOT_NUMBER}" class="whatsapp-button" target="_blank">
-              Iniciar Conversa
-            </a>
-          </div>
-        </div>
-      </body>
-    </html>
-  `);
-});
+// Função para formatar saldo
+function formatSaldo(saldo) {
+  const emoji = saldo >= 0 ? "📈" : "📉";
+  return (
+    `${emoji} *Saldo Atual*\n\n` +
+    `💰 ${formatMoney(saldo)}\n\n` +
+    `_Use /extrato para ver suas últimas transações_`
+  );
+}
 
-// Registra o router com prefixo
-app.use("/whatsapp", whatsappRouter);
+// Função para formatar categorias
+function formatCategorias(categorias) {
+  if (categorias.size === 0) {
+    return "📋 *Categorias*\n\n❌ Nenhuma categoria registrada.";
+  }
 
-// Rota de status
-app.get("/status", (req, res) => {
-  res.json({
-    status: clientReady ? "connected" : "disconnected",
-    qrAvailable: currentQR !== null,
-  });
-});
+  return (
+    "📋 *Suas Categorias*\n" +
+    "━━━━━━━━━━━━━━━━━━━━━\n\n" +
+    Array.from(categorias)
+      .map((c) => `🏷️ #${c}`)
+      .join("\n") +
+    "\n\n_Use uma categoria ao registrar transações_"
+  );
+}
 
-// Rota de documentação
-app.get("/docs", (req, res) => {
-  res.send(`
-    <html>
-      <head>
-        <title>FinBot API Documentation</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { 
-            font-family: Arial; 
-            padding: 20px;
-            max-width: 800px;
-            margin: 0 auto;
-            line-height: 1.6;
-          }
-          .endpoint {
-            background: #f5f5f5;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 10px 0;
-          }
-          .method {
-            font-weight: bold;
-            color: #0066cc;
-          }
-          .url {
-            color: #666;
-            font-family: monospace;
-          }
-          h2 {
-            border-bottom: 2px solid #eee;
-            padding-bottom: 10px;
-          }
-        </style>
-      </head>
-      <body>
-        <h1>🤖 FinBot API Documentation</h1>
-        
-        <h2>Endpoints Disponíveis</h2>
+// Função para formatar menu inicial
+function formatMenuInicial() {
+  return (
+    `🤖 *FinBot - Seu Assistente Financeiro*\n\n` +
+    `*Comandos Básicos:*\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n` +
+    `💰 */saldo* - Ver saldo atual\n` +
+    `📝 */receita* [valor] [descrição] #categoria\n` +
+    `💸 */despesa* [valor] [descrição] #categoria\n` +
+    `📊 */extrato* - Ver últimas transações\n\n` +
+    `*Gestão Financeira:*\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n` +
+    `🎯 */meta* [valor] [descrição] - Definir meta\n` +
+    `⏰ */lembrete* [data] [descrição] - Criar lembrete\n` +
+    `📅 */recorrente* [tipo] [valor] [descrição] - Pagamento recorrente\n` +
+    `💹 */orcamento* [categoria] [valor] - Definir orçamento\n\n` +
+    `*Análises:*\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n` +
+    `📈 */relatorio* [diario|semanal|mensal]\n` +
+    `📊 */categorias* - Ver categorias\n` +
+    `❓ */ajuda* - Ver todos os comandos`
+  );
+}
 
-        <div class="endpoint">
-          <p><span class="method">GET</span> <span class="url">/whatsapp</span></p>
-          <p>Página de administração do bot. Mostra QR Code para conexão e status.</p>
-          <p>Uso: Apenas para administradores</p>
-        </div>
+// Função para formatar relatório
+function formatRelatorio(tipo, dados) {
+  const hoje = new Date();
+  const periodos = {
+    diario: "Diário",
+    semanal: "Semanal",
+    mensal: "Mensal",
+  };
 
-        <div class="endpoint">
-          <p><span class="method">GET</span> <span class="url">/whatsapp/conversar</span></p>
-          <p>Página para usuários iniciarem conversa com o bot.</p>
-          <p>Contém QR Code e botão para WhatsApp.</p>
-        </div>
+  return (
+    `📊 *Relatório ${periodos[tipo]}*\n` +
+    `📅 ${formatDate(hoje)}\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `📈 Receitas: ${formatMoney(dados.receitas)}\n` +
+    `📉 Despesas: ${formatMoney(dados.despesas)}\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n` +
+    `💰 Saldo: ${formatMoney(dados.saldo)}`
+  );
+}
 
-        <div class="endpoint">
-          <p><span class="method">GET</span> <span class="url">/whatsapp/qr</span></p>
-          <p>Retorna o QR Code atual em JSON.</p>
-          <p>Resposta: { qr: "string" } ou { connected: true }</p>
-        </div>
+// Configurações do Venom
+const venomOptions = {
+  session: "finbot-session",
+  headless: true,
+  useChrome: false,
+  createPathFileToken: true,
+  folderNameToken: SESSION_DIR,
+  disableWelcome: true,
+  autoClose: false,
+  // Aumenta tempo de espera da sessão
+  waitForLogin: true,
+  sessionToken: {
+    WABrowserId: process.env.WA_BROWSER_ID,
+    WASecretBundle: process.env.WA_SECRET_BUNDLE,
+    WAToken1: process.env.WA_TOKEN1,
+    WAToken2: process.env.WA_TOKEN2,
+  },
+  catchQR: (base64Qr, asciiQR) => {
+    console.log("\n\n==== QR CODE ====\n");
+    console.log(asciiQR);
+    console.log("\n================\n");
+    currentQR = base64Qr;
+  },
+  statusFind: (statusSession) => {
+    console.log("Status da Sessão:", statusSession);
+    if (statusSession === "inChat" || statusSession === "isLogged") {
+      console.log("✅ WhatsApp conectado!");
+      clientReady = true;
+      currentQR = null;
+    }
+  },
+};
 
-        <div class="endpoint">
-          <p><span class="method">GET</span> <span class="url">/status</span></p>
-          <p>Retorna status atual do bot.</p>
-          <p>Resposta: { status: "connected"|"disconnected", qrAvailable: boolean }</p>
-        </div>
-
-        <h2>Informações Adicionais</h2>
-        <ul>
-          <li>Número do Bot: ${BOT_NUMBER}</li>
-          <li>Ambiente: ${process.env.NODE_ENV || "development"}</li>
-          <li>Versão: ${require("./package.json").version}</li>
-        </ul>
-      </body>
-    </html>
-  `);
-});
-
+// Inicia o servidor
 app.listen(PORT, () => {
   console.log(`🚀 Servidor WhatsApp rodando na porta ${PORT}`);
   console.log("⏳ Iniciando cliente WhatsApp...");

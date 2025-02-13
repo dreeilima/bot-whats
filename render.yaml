@@ -9,6 +9,14 @@ services:
         value: production
       - key: PORT
         value: 3001
+      - key: WA_BROWSER_ID
+        sync: false
+      - key: WA_SECRET_BUNDLE
+        sync: false
+      - key: WA_TOKEN1
+        sync: false
+      - key: WA_TOKEN2
+        sync: false
     autoDeploy: true
     plan: free
     scaling:
