@@ -12,11 +12,16 @@ const PORT = process.env.PORT || 3001; // Usa a porta do ambiente ou 3001 como f
 let currentQR = null;
 let clientReady = false;
 let client = null;
-const SESSION_DIR = "./sessions";
+
+// Configurações de sessão
+const SESSION_DIR =
+  process.env.NODE_ENV === "production"
+    ? "/app/sessions" // Diretório persistente no Render
+    : "./sessions"; // Diretório local para desenvolvimento
 
 // Garante que o diretório de sessões existe
 if (!fs.existsSync(SESSION_DIR)) {
-  fs.mkdirSync(SESSION_DIR);
+  fs.mkdirSync(SESSION_DIR, { recursive: true });
 }
 
 // Ajuste a URL do webhook baseado no ambiente
@@ -39,6 +44,8 @@ const venomOptions = {
   useChrome: false,
   debug: false,
   logQR: true,
+  createPathFileToken: true,
+  folderNameToken: SESSION_DIR,
   browserArgs: [
     "--no-sandbox",
     "--disable-setuid-sandbox",
