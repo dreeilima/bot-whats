@@ -33,26 +33,24 @@ CMD ["python", "setup.py"]
 
 FROM node:20-slim
 
-# Instala dependências necessárias
+# Instala apenas o essencial
 RUN apt-get update && apt-get install -y \
     chromium \
-    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Define diretório de trabalho
 WORKDIR /app
 
-# Copia arquivos de dependências
-COPY package*.json ./
+# Configura Puppeteer
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Instala dependências
-RUN npm install --omit=dev
+COPY package*.json ./
+RUN npm install --production
 
-# Copia código fonte
+# Copia código
 COPY . .
 
-# Expõe porta
 EXPOSE 3001
 
-# Comando para iniciar
 CMD ["npm", "start"]
