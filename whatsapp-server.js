@@ -22,8 +22,8 @@ if (!fs.existsSync(SESSION_DIR)) {
 // Ajuste a URL do webhook baseado no ambiente
 const webhookUrl =
   process.env.NODE_ENV === "production"
-    ? "https://bot-whats-9onh.onrender.com/whatsapp/webhook"
-    : "http://localhost:8000/whatsapp/webhook";
+    ? "https://bot-whats-9onh.onrender.com/whatsapp/webhook" // URL de produção
+    : "http://localhost:8000/whatsapp/webhook"; // URL local
 
 // No início do arquivo, após os requires
 console.log("🚀 Iniciando servidor...");
@@ -74,6 +74,9 @@ async function initializeWhatsApp() {
       try {
         console.log("📩 Mensagem recebida:", message.body);
 
+        // Adiciona mais logs para debug
+        console.log("🔗 Usando webhook:", webhookUrl);
+
         const payload = {
           message: {
             from: message.from.replace("@c.us", ""),
@@ -114,7 +117,7 @@ async function initializeWhatsApp() {
           );
         }
       } catch (error) {
-        console.error("❌ Erro ao processar mensagem:", error.message);
+        console.error("❌ Erro ao processar mensagem:", error);
         if (error.response) {
           console.error("Status:", error.response.status);
           console.error("Headers:", error.response.headers);
