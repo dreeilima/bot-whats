@@ -1,24 +1,21 @@
 {
-  "name": "whatsapp-server",
+  "name": "whatsapp-bot",
   "version": "1.0.0",
+  "description": "WhatsApp Bot para ajuda na gestão das finanças",
   "main": "whatsapp-server.js",
-  "engines": {
-    "node": ">=18.0.0"
+  "scripts": {
+    "start": "node whatsapp-server.js",
+    "dev": "nodemon whatsapp-server.js",
+    "clean": "rm -rf tokens sessions && mkdir -p tokens sessions",
+    "prestart": "npm run clean"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "axios": "^1.6.7",
+    "venom-bot": "^5.0.21",
     "qrcode": "^1.5.3",
-    "venom-bot": "^5.0.21"
+    "axios": "^1.6.2"
   },
-  "scripts": {
-    "start": "rm -rf tokens && node whatsapp-server.js",
-    "dev": "nodemon whatsapp-server.js",
-    "session:backup": "node scripts/manage-session.js backup",
-    "session:restore": "node scripts/manage-session.js restore",
-    "session:list": "node scripts/manage-session.js list"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.3"
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

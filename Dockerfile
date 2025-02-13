@@ -33,17 +33,13 @@ CMD ["python", "setup.py"]
 
 FROM node:20-slim
 
-# Instala dependências do sistema
+# Instala dependências necessárias
 RUN apt-get update && apt-get install -y \
     chromium \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Define variáveis de ambiente
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-
-# Cria diretório da aplicação
+# Define diretório de trabalho
 WORKDIR /app
 
 # Copia arquivos de dependências
@@ -58,5 +54,5 @@ COPY . .
 # Expõe porta
 EXPOSE 3001
 
-# Inicia aplicação
-CMD ["node", "whatsapp-server.js"]
+# Comando para iniciar
+CMD ["npm", "start"]
