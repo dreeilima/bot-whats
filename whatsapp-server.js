@@ -22,7 +22,7 @@ if (!fs.existsSync(SESSION_DIR)) {
 // Ajuste a URL do webhook baseado no ambiente
 const webhookUrl =
   process.env.NODE_ENV === "production"
-    ? "https://finbot-9onh.onrender.com/whatsapp/webhook" // URL da API Python em produção
+    ? "https://finbot-api-9onh.onrender.com/whatsapp/webhook" // URL correta da API Python
     : "http://localhost:8000/whatsapp/webhook"; // URL local
 
 // Adiciona log para debug do ambiente
