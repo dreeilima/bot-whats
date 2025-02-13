@@ -30,12 +30,13 @@ console.log("🚀 Iniciando servidor...");
 
 // Configurações do Venom para produção
 const venomOptions = {
-  session: "finbot-session",
+  session: "finbot-session", // Nome da sessão
+  multidevice: true, // Habilita suporte multidevice
   headless: true,
   useChrome: false,
   debug: false,
   logQR: true,
-  disableWelcome: true, // Desabilita mensagem de boas-vindas
+  disableWelcome: true,
   browserArgs: [
     "--no-sandbox",
     "--disable-setuid-sandbox",
@@ -46,8 +47,10 @@ const venomOptions = {
     "--single-process",
     "--disable-gpu",
   ],
-  createPathFileToken: true,
-  waitForLogin: false, // Não espera pelo login
+  createPathFileToken: true, // Importante para criar o arquivo de sessão
+  waitForLogin: false,
+  folderNameToken: "tokens", // Pasta onde serão salvos os tokens
+  mkdirFolderToken: true, // Cria a pasta se não existir
   catchQR: (base64Qr, asciiQR, attempts) => {
     console.log("Tentativa", attempts, "de gerar QR Code");
     currentQR = base64Qr;
@@ -78,13 +81,25 @@ async function initializeWhatsApp() {
   try {
     console.log("🚀 Iniciando cliente WhatsApp...");
 
+    // Garante que as pastas existem
+    if (!fs.existsSync("./tokens")) {
+      fs.mkdirSync("./tokens", { recursive: true });
+    }
+    if (!fs.existsSync("./sessions")) {
+      fs.mkdirSync("./sessions", { recursive: true });
+    }
+
     // Limpa sessões antigas
     if (fs.existsSync("./tokens")) {
       fs.rmSync("./tokens", { recursive: true, force: true });
+      fs.mkdirSync("./tokens");
       console.log("🧹 Sessões antigas removidas");
     }
 
-    client = await create(venomOptions);
+    client = await create({
+      session: "finbot-session",
+      ...venomOptions,
+    });
 
     // Configurar listener de mensagens
     client.onMessage(async (message) => {
@@ -143,7 +158,6 @@ async function initializeWhatsApp() {
     });
   } catch (error) {
     console.error("❌ Erro ao iniciar cliente:", error);
-    // Tenta reiniciar após 5 segundos
     setTimeout(initializeWhatsApp, 5000);
   }
 }
