@@ -8,7 +8,7 @@ const path = require("path");
 const app = express();
 app.use(express.json());
 
-const PORT = 3001; // Força a porta 3001
+const PORT = process.env.PORT || 3001; // Usa a porta do ambiente ou 3001 como fallback
 let currentQR = null;
 let clientReady = false;
 let client = null;
@@ -234,7 +234,7 @@ app.get("/status", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor WhatsApp rodando em http://localhost:${PORT}`);
+  console.log(`🚀 Servidor WhatsApp rodando na porta ${PORT}`);
   console.log("⏳ Iniciando cliente WhatsApp...");
   initializeWhatsApp();
 });
