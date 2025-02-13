@@ -3,6 +3,7 @@ FROM node:20-slim
 # Instala dependências necessárias
 RUN apt-get update && apt-get install -y \
     chromium \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -11,11 +12,13 @@ WORKDIR /app
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Instala dependências
+# Copia package.json e package-lock.json
 COPY package*.json ./
-RUN npm install --omit=dev
 
-# Copia código
+# Instala todas as dependências (incluindo pg)
+RUN npm install
+
+# Copia o resto do código
 COPY . .
 
 EXPOSE 3001
