@@ -25,6 +25,10 @@ const webhookUrl =
     ? "https://bot-whats-9onh.onrender.com/whatsapp/webhook" // URL de produção
     : "http://localhost:8000/whatsapp/webhook"; // URL local
 
+// Adiciona log para debug do ambiente
+console.log("🌍 Ambiente:", process.env.NODE_ENV);
+console.log("🔗 Webhook URL:", webhookUrl);
+
 // No início do arquivo, após os requires
 console.log("🚀 Iniciando servidor...");
 
