@@ -22,7 +22,7 @@ if (!fs.existsSync(SESSION_DIR)) {
 // Ajuste a URL do webhook baseado no ambiente
 const webhookUrl =
   process.env.NODE_ENV === "production"
-    ? "https://bot-whats-9onh.onrender.com/whatsapp/webhook" // URL de produção
+    ? "https://finbot-9onh.onrender.com/whatsapp/webhook" // URL da API Python em produção
     : "http://localhost:8000/whatsapp/webhook"; // URL local
 
 // Adiciona log para debug do ambiente
@@ -227,6 +227,52 @@ whatsappRouter.get("/qr", (req, res) => {
   } else {
     res.json({ error: "QR Code não disponível" });
   }
+});
+
+// Número do WhatsApp do bot (com código do país)
+const BOT_NUMBER = "5511953238980"; // Número que apareceu nos logs
+
+// Rota para usuários iniciarem conversa
+whatsappRouter.get("/conversar", (req, res) => {
+  res.send(`
+    <html>
+      <head>
+        <title>Conversar com FinBot</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { 
+            font-family: Arial; 
+            text-align: center; 
+            padding: 20px;
+            background: #f5f5f5;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+          }
+          .whatsapp-button {
+            background: #25D366;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-size: 18px;
+            display: inline-block;
+            margin-top: 20px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>💬 Conversar com FinBot</h1>
+          <p>Clique no botão abaixo para iniciar uma conversa com o FinBot no WhatsApp</p>
+          <a href="https://wa.me/${BOT_NUMBER}" class="whatsapp-button" target="_blank">
+            Iniciar Conversa
+          </a>
+        </div>
+      </body>
+    </html>
+  `);
 });
 
 // Registra o router com prefixo
