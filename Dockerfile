@@ -33,10 +33,9 @@ CMD ["python", "setup.py"]
 
 FROM node:20-slim
 
-# Instala dependências do sistema
+# Instala dependências necessárias
 RUN apt-get update && apt-get install -y \
     chromium \
-    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -47,7 +46,7 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
 
 # Instala dependências
 COPY package*.json ./
-RUN npm install --production --force
+RUN npm install --omit=dev
 
 # Copia código
 COPY . .

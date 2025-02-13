@@ -30,13 +30,11 @@ console.log("🚀 Iniciando servidor...");
 
 // Configurações do Venom para produção
 const venomOptions = {
-  session: "finbot-session", // Nome da sessão
-  multidevice: true, // Habilita suporte multidevice
+  session: "finbot-session",
   headless: true,
   useChrome: false,
   debug: false,
   logQR: true,
-  disableWelcome: true,
   browserArgs: [
     "--no-sandbox",
     "--disable-setuid-sandbox",
@@ -47,28 +45,15 @@ const venomOptions = {
     "--single-process",
     "--disable-gpu",
   ],
-  createPathFileToken: true, // Importante para criar o arquivo de sessão
-  waitForLogin: false,
-  folderNameToken: "tokens", // Pasta onde serão salvos os tokens
-  mkdirFolderToken: true, // Cria a pasta se não existir
-  catchQR: (base64Qr, asciiQR, attempts) => {
-    console.log("Tentativa", attempts, "de gerar QR Code");
+  catchQR: (base64Qr, asciiQR) => {
+    console.log("\n\n==== QR CODE ====\n");
+    console.log(asciiQR); // Exibe QR code em ASCII no console
+    console.log("\n================\n");
     currentQR = base64Qr;
-
-    // Salva o QR code em um arquivo para debug
-    if (base64Qr) {
-      const qrPath = path.join(__dirname, "qr-code.txt");
-      fs.writeFileSync(qrPath, base64Qr);
-      console.log("QR Code salvo em:", qrPath);
-    }
   },
-  statusFind: (statusSession, session) => {
+  statusFind: (statusSession) => {
     console.log("Status da Sessão:", statusSession);
-    if (
-      statusSession === "qrReadSuccess" ||
-      statusSession === "inChat" ||
-      statusSession === "isLogged"
-    ) {
+    if (statusSession === "inChat" || statusSession === "isLogged") {
       console.log("✅ WhatsApp conectado!");
       clientReady = true;
       currentQR = null;
@@ -80,26 +65,7 @@ const venomOptions = {
 async function initializeWhatsApp() {
   try {
     console.log("🚀 Iniciando cliente WhatsApp...");
-
-    // Garante que as pastas existem
-    if (!fs.existsSync("./tokens")) {
-      fs.mkdirSync("./tokens", { recursive: true });
-    }
-    if (!fs.existsSync("./sessions")) {
-      fs.mkdirSync("./sessions", { recursive: true });
-    }
-
-    // Limpa sessões antigas
-    if (fs.existsSync("./tokens")) {
-      fs.rmSync("./tokens", { recursive: true, force: true });
-      fs.mkdirSync("./tokens");
-      console.log("🧹 Sessões antigas removidas");
-    }
-
-    client = await create({
-      session: "finbot-session",
-      ...venomOptions,
-    });
+    client = await create(venomOptions);
 
     // Configurar listener de mensagens
     client.onMessage(async (message) => {

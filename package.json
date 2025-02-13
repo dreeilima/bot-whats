@@ -5,19 +5,15 @@
   "main": "whatsapp-server.js",
   "scripts": {
     "start": "node whatsapp-server.js",
-    "dev": "nodemon whatsapp-server.js",
-    "clean": "rm -rf tokens sessions && mkdir -p tokens sessions",
-    "prestart": "npm run clean"
+    "dev": "nodemon whatsapp-server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "venom-bot": "^4.3.7",
+    "venom-bot": "^5.0.21",
     "qrcode": "^1.5.3",
-    "axios": "^1.6.2",
-    "puppeteer": "^22.8.2",
-    "sharp": "^0.32.6"
+    "axios": "^1.6.2"
   },
   "engines": {
-    "node": "20.x"
+    "node": ">=20.0.0"
   }
 }
