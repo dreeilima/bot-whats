@@ -35,6 +35,7 @@ const venomOptions = {
   useChrome: false,
   debug: false,
   logQR: true,
+  disableWelcome: true, // Desabilita mensagem de boas-vindas
   browserArgs: [
     "--no-sandbox",
     "--disable-setuid-sandbox",
@@ -42,30 +43,29 @@ const venomOptions = {
     "--disable-accelerated-2d-canvas",
     "--no-first-run",
     "--no-zygote",
-    "--single-process", // <- this one doesn't works in Windows
+    "--single-process",
     "--disable-gpu",
   ],
-  puppeteerOptions: {
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-accelerated-2d-canvas",
-      "--no-first-run",
-      "--no-zygote",
-      "--single-process",
-      "--disable-gpu",
-    ],
-  },
   createPathFileToken: true,
-  waitForLogin: true,
-  catchQR: (base64Qr) => {
-    console.log("📱 Novo QR Code gerado");
+  waitForLogin: false, // Não espera pelo login
+  catchQR: (base64Qr, asciiQR, attempts) => {
+    console.log("Tentativa", attempts, "de gerar QR Code");
     currentQR = base64Qr;
+
+    // Salva o QR code em um arquivo para debug
+    if (base64Qr) {
+      const qrPath = path.join(__dirname, "qr-code.txt");
+      fs.writeFileSync(qrPath, base64Qr);
+      console.log("QR Code salvo em:", qrPath);
+    }
   },
-  statusFind: (statusSession) => {
+  statusFind: (statusSession, session) => {
     console.log("Status da Sessão:", statusSession);
-    if (statusSession === "inChat" || statusSession === "isLogged") {
+    if (
+      statusSession === "qrReadSuccess" ||
+      statusSession === "inChat" ||
+      statusSession === "isLogged"
+    ) {
       console.log("✅ WhatsApp conectado!");
       clientReady = true;
       currentQR = null;
@@ -77,6 +77,13 @@ const venomOptions = {
 async function initializeWhatsApp() {
   try {
     console.log("🚀 Iniciando cliente WhatsApp...");
+
+    // Limpa sessões antigas
+    if (fs.existsSync("./tokens")) {
+      fs.rmSync("./tokens", { recursive: true, force: true });
+      console.log("🧹 Sessões antigas removidas");
+    }
+
     client = await create(venomOptions);
 
     // Configurar listener de mensagens
@@ -136,7 +143,8 @@ async function initializeWhatsApp() {
     });
   } catch (error) {
     console.error("❌ Erro ao iniciar cliente:", error);
-    setTimeout(initializeWhatsApp, 5000); // Tenta reconectar após 5 segundos
+    // Tenta reiniciar após 5 segundos
+    setTimeout(initializeWhatsApp, 5000);
   }
 }
 
@@ -170,25 +178,68 @@ whatsappRouter.get("/", (req, res) => {
             max-width: 100%;
             height: auto;
           }
+          .error {
+            color: red;
+            margin: 10px 0;
+          }
+          .success {
+            color: green;
+            margin: 10px 0;
+          }
+          .qr-container img {
+            border: 10px solid white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+          }
         </style>
       </head>
       <body>
-        <h1>FinBot Admin</h1>
-        
-        <div class="qr-container">
-          ${
-            clientReady
-              ? `<h2>✅ Bot Conectado!</h2>`
-              : currentQR
-              ? `<h2>📱 Escaneie o QR Code</h2>
-                 <img src="${currentQR}" alt="QR Code" />`
-              : `<h2>⏳ Gerando QR Code...</h2>
-                 <p>Aguarde um momento...</p>`
-          }
+        <div class="container">
+          <h1>🤖 FinBot Admin</h1>
+          
+          <div class="qr-container">
+            ${
+              clientReady
+                ? '<h2 class="success">✅ Bot Conectado!</h2>'
+                : currentQR
+                ? `<h2>📱 Escaneie o QR Code</h2>
+                     <img src="${currentQR}" alt="QR Code" />`
+                : `<h2 class="error">⏳ Gerando QR Code...</h2>
+                     <p>Se o QR Code não aparecer em 30 segundos, atualize a página.</p>`
+            }
+          </div>
+
+          <div id="status"></div>
+          
+          <button onclick="location.reload()" class="whatsapp-button">
+            🔄 Atualizar QR Code
+          </button>
         </div>
+
+        <script>
+          // Atualiza status a cada 5 segundos
+          setInterval(() => {
+            fetch('/whatsapp/status')
+              .then(res => res.json())
+              .then(data => {
+                const status = document.getElementById('status');
+                status.textContent = data.message || 'Aguardando...';
+              });
+          }, 5000);
+        </script>
       </body>
     </html>
   `);
+});
+
+// Rota para obter o QR code atual
+whatsappRouter.get("/qr", (req, res) => {
+  if (currentQR) {
+    res.json({ qr: currentQR });
+  } else if (clientReady) {
+    res.json({ connected: true });
+  } else {
+    res.json({ error: "QR Code não disponível" });
+  }
 });
 
 // Registra o router com prefixo

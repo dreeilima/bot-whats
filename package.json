@@ -6,12 +6,19 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "express": "^4.21.2",
-    "node-fetch": "^2.7.0",
-    "qrcode": "^1.5.4",
+    "express": "^4.18.2",
+    "axios": "^1.6.7",
+    "qrcode": "^1.5.3",
     "venom-bot": "^5.0.21"
   },
   "scripts": {
-    "start": "node whatsapp-server.js"
+    "start": "rm -rf tokens && node whatsapp-server.js",
+    "dev": "nodemon whatsapp-server.js",
+    "session:backup": "node scripts/manage-session.js backup",
+    "session:restore": "node scripts/manage-session.js restore",
+    "session:list": "node scripts/manage-session.js list"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
   }
 }
