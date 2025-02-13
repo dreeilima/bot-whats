@@ -18,7 +18,6 @@ RUN npm install --omit=dev
 # Copia código
 COPY . .
 
-# Usa variável de ambiente PORT
-EXPOSE ${PORT:-3001}
+EXPOSE 3001
 
 CMD ["npm", "start"]

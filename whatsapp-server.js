@@ -27,8 +27,8 @@ if (!fs.existsSync(SESSION_DIR)) {
 // Ajuste a URL do webhook baseado no ambiente
 const webhookUrl =
   process.env.NODE_ENV === "production"
-    ? "https://finbot-api-9onh.onrender.com/whatsapp/webhook" // Volta para /whatsapp/webhook
-    : "http://localhost:8000/whatsapp/webhook"; // URL local
+    ? "https://bot-whats-9onh.onrender.com/webhook" // URL do serviço atual
+    : "http://localhost:8000/webhook"; // URL local para desenvolvimento
 
 // Adiciona log para debug do ambiente
 console.log("🌍 Ambiente:", process.env.NODE_ENV);
@@ -84,63 +84,75 @@ async function initializeWhatsApp() {
 
       try {
         console.log("📩 Mensagem recebida:", message.body);
-        console.log("🔗 Usando webhook:", webhookUrl);
 
-        // Ajusta estrutura do payload conforme documentação da API
-        const payload = {
-          message: {
-            from: message.from.replace("@c.us", ""),
-            text: message.body,
-            type: "text",
-            timestamp: Date.now(),
-          },
-        };
+        // Processa a mensagem
+        const response = processMessage(message.body, message.from);
 
-        console.log("📤 Enviando para webhook:", payload);
-
-        const response = await axios({
-          method: "post",
-          url: webhookUrl,
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          data: payload,
-          validateStatus: function (status) {
-            return status >= 200 && status < 500;
-          },
-        });
-
-        console.log("📥 Status da resposta:", response.status);
-        console.log("📥 Dados da resposta:", response.data);
-
-        if (
-          response.data &&
-          response.data.message === "success" &&
-          response.data.response
-        ) {
-          await client.sendText(message.from, response.data.response);
-          console.log("✅ Resposta enviada:", response.data.response);
-        } else {
-          console.log("⚠️ Estrutura da resposta inválida:", response.data);
-          await client.sendText(
-            message.from,
-            "Desculpe, ocorreu um erro ao processar sua mensagem."
-          );
-        }
+        // Envia resposta
+        await client.sendText(message.from, response);
+        console.log("✅ Resposta enviada:", response);
       } catch (error) {
         console.error("❌ Erro ao processar mensagem:", error);
-        if (error.response) {
-          console.error("Status:", error.response.status);
-          console.error("Headers:", error.response.headers);
-          console.error("Data:", error.response.data);
-        }
+        await client.sendText(
+          message.from,
+          "Desculpe, ocorreu um erro ao processar sua mensagem."
+        );
       }
     });
   } catch (error) {
     console.error("❌ Erro ao iniciar cliente:", error);
     setTimeout(initializeWhatsApp, 5000);
   }
+}
+
+// Função para processar mensagem e retornar resposta
+function processMessage(text, from) {
+  // Converte para minúsculo para comparação
+  const command = text.toLowerCase().trim();
+
+  // Comandos básicos
+  if (command === "oi" || command === "olá" || command === "ola") {
+    return (
+      "Olá! Eu sou o FinBot 🤖\nPosso te ajudar com:\n\n" +
+      "📝 /receita [valor] [descrição] #categoria\n" +
+      "💰 /despesa [valor] [descrição] #categoria\n" +
+      "📊 /relatorio [diario|semanal|mensal]\n" +
+      "❓ /ajuda - para ver todos os comandos"
+    );
+  }
+
+  if (command === "/ajuda") {
+    return (
+      "Comandos disponíveis:\n\n" +
+      "📝 Registrar receita:\n" +
+      "/receita 100 Salário #trabalho\n\n" +
+      "💰 Registrar despesa:\n" +
+      "/despesa 50 Mercado #alimentacao\n\n" +
+      "📊 Ver relatórios:\n" +
+      "/relatorio diario\n" +
+      "/relatorio semanal\n" +
+      "/relatorio mensal"
+    );
+  }
+
+  // Comandos de finanças
+  if (command.startsWith("/receita")) {
+    // TODO: Implementar lógica de receita
+    return "🎉 Receita registrada com sucesso!";
+  }
+
+  if (command.startsWith("/despesa")) {
+    // TODO: Implementar lógica de despesa
+    return "📝 Despesa registrada com sucesso!";
+  }
+
+  if (command.startsWith("/relatorio")) {
+    // TODO: Implementar lógica de relatório
+    return "📊 Aqui está seu relatório...";
+  }
+
+  // Se não reconhecer o comando
+  return "Desculpe, não entendi este comando. Digite /ajuda para ver as opções disponíveis.";
 }
 
 // Adiciona prefixo para as rotas do WhatsApp
@@ -320,6 +332,81 @@ app.get("/status", (req, res) => {
     status: clientReady ? "connected" : "disconnected",
     qrAvailable: currentQR !== null,
   });
+});
+
+// Rota de documentação
+app.get("/docs", (req, res) => {
+  res.send(`
+    <html>
+      <head>
+        <title>FinBot API Documentation</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { 
+            font-family: Arial; 
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+          }
+          .endpoint {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+          }
+          .method {
+            font-weight: bold;
+            color: #0066cc;
+          }
+          .url {
+            color: #666;
+            font-family: monospace;
+          }
+          h2 {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>🤖 FinBot API Documentation</h1>
+        
+        <h2>Endpoints Disponíveis</h2>
+
+        <div class="endpoint">
+          <p><span class="method">GET</span> <span class="url">/whatsapp</span></p>
+          <p>Página de administração do bot. Mostra QR Code para conexão e status.</p>
+          <p>Uso: Apenas para administradores</p>
+        </div>
+
+        <div class="endpoint">
+          <p><span class="method">GET</span> <span class="url">/whatsapp/conversar</span></p>
+          <p>Página para usuários iniciarem conversa com o bot.</p>
+          <p>Contém QR Code e botão para WhatsApp.</p>
+        </div>
+
+        <div class="endpoint">
+          <p><span class="method">GET</span> <span class="url">/whatsapp/qr</span></p>
+          <p>Retorna o QR Code atual em JSON.</p>
+          <p>Resposta: { qr: "string" } ou { connected: true }</p>
+        </div>
+
+        <div class="endpoint">
+          <p><span class="method">GET</span> <span class="url">/status</span></p>
+          <p>Retorna status atual do bot.</p>
+          <p>Resposta: { status: "connected"|"disconnected", qrAvailable: boolean }</p>
+        </div>
+
+        <h2>Informações Adicionais</h2>
+        <ul>
+          <li>Número do Bot: ${BOT_NUMBER}</li>
+          <li>Ambiente: ${process.env.NODE_ENV || "development"}</li>
+          <li>Versão: ${require("./package.json").version}</li>
+        </ul>
+      </body>
+    </html>
+  `);
 });
 
 app.listen(PORT, () => {
