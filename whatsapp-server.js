@@ -27,8 +27,8 @@ if (!fs.existsSync(SESSION_DIR)) {
 // Ajuste a URL do webhook baseado no ambiente
 const webhookUrl =
   process.env.NODE_ENV === "production"
-    ? "https://finbot-api-9onh.onrender.com/webhook" // URL correta sem /whatsapp
-    : "http://localhost:8000/webhook"; // URL local
+    ? "https://finbot-api-9onh.onrender.com/whatsapp/webhook" // Volta para /whatsapp/webhook
+    : "http://localhost:8000/whatsapp/webhook"; // URL local
 
 // Adiciona log para debug do ambiente
 console.log("🌍 Ambiente:", process.env.NODE_ENV);
@@ -86,11 +86,13 @@ async function initializeWhatsApp() {
         console.log("📩 Mensagem recebida:", message.body);
         console.log("🔗 Usando webhook:", webhookUrl);
 
-        // Ajusta estrutura do payload conforme API Python espera
+        // Ajusta estrutura do payload conforme documentação da API
         const payload = {
           message: {
             from: message.from.replace("@c.us", ""),
             text: message.body,
+            type: "text",
+            timestamp: Date.now(),
           },
         };
 
@@ -105,7 +107,7 @@ async function initializeWhatsApp() {
           },
           data: payload,
           validateStatus: function (status) {
-            return status >= 200 && status < 500; // Aceita qualquer status 2xx-4xx
+            return status >= 200 && status < 500;
           },
         });
 
