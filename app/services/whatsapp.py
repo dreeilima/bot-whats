@@ -9,11 +9,9 @@ logger = logging.getLogger(__name__)
 class WhatsAppService:
     def __init__(self):
         self.phone_number = config("WHATSAPP_NUMBER")
-        self.api_url = "http://localhost:3001"  # URL do servidor Node.js
-        if os.getenv("NODE_ENV") == "production":
-            self.api_url = "https://bot-whats-9onh.onrender.com"
+        self.api_url = os.getenv("NODE_URL", "http://localhost:3001")
         self.qr_code = None
-        logger.info(f"Iniciando WhatsApp com número: {self.phone_number}")
+        logger.info(f"🚀 Iniciando WhatsApp com URL: {self.api_url}")
         
     async def get_qr_code(self):
         """Obtém QR code do servidor Node.js"""
@@ -33,42 +31,31 @@ class WhatsAppService:
     async def send_message(self, to: str, message: str) -> bool:
         """Envia mensagem via servidor Node.js"""
         try:
-            logger.info(f"\n📤 Tentando enviar mensagem:")
-            logger.info(f"Para: {to}")
-            logger.info(f"Mensagem: {message}")
-
-            # Remove formatação do número
+            logger.info(f"\n📤 Tentando enviar mensagem para {to}")
+            
+            # Formata número
             clean_number = to.replace("+", "").replace("-", "").replace(" ", "")
             if not clean_number.startswith("55"):
                 clean_number = "55" + clean_number
-            
-            logger.info(f"Número formatado: {clean_number}")
-
-            # Envia para o servidor Node.js
-            response = requests.post(
-                f"{self.api_url}/send-message",
-                json={
-                    "to": clean_number,
-                    "message": message
-                }
-            )
-            
-            if response.status_code == 200:
-                logger.info(f"\n✅ Mensagem enviada com sucesso:")
-                logger.info(f"Para: {clean_number}")
-                logger.info(f"Status: {response.status_code}")
-                return True
-            else:
-                logger.error(f"\n❌ Erro ao enviar mensagem:")
-                logger.error(f"Para: {clean_number}")
-                logger.error(f"Status: {response.status_code}")
-                logger.error(f"Resposta: {response.text}")
+                
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.api_url}/send-message",
+                    json={
+                        "to": f"{clean_number}@c.us",
+                        "message": message
+                    }
+                )
+                
+                if response.status_code == 200:
+                    logger.info("✅ Mensagem enviada com sucesso")
+                    return True
+                    
+                logger.error(f"❌ Erro ao enviar mensagem: {response.text}")
                 return False
                 
         except Exception as e:
-            logger.error(f"\n❌ Erro ao enviar mensagem:")
-            logger.error(f"Para: {to}")
-            logger.error(f"Erro: {str(e)}")
+            logger.error(f"❌ Erro ao enviar mensagem: {str(e)}")
             logger.exception(e)
             return False
             

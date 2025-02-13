@@ -489,26 +489,47 @@ app.get(["/qr", "/whatsapp/qr"], (req, res) => {
   });
 });
 
-// Adiciona proxy para o FastAPI
-app.use("/whatsapp", (req, res, next) => {
-  console.log(`📥 Requisição para FastAPI: ${req.method} ${req.path}`);
-  // Proxy para o FastAPI
-  axios
-    .request({
-      method: req.method,
-      url: `${process.env.FASTAPI_URL || "http://localhost:8000"}/whatsapp${
-        req.path
-      }`,
-      data: req.body,
-      headers: req.headers,
-    })
-    .then((response) => {
-      res.status(response.status).send(response.data);
-    })
-    .catch((error) => {
-      console.error("❌ Erro no proxy:", error);
-      res.status(500).send("Erro interno do servidor");
+// Adiciona rota para processar mensagens do WhatsApp
+app.post("/webhook", async (req, res) => {
+  try {
+    console.log("\n📨 Webhook recebido:", req.body);
+
+    // Envia para o FastAPI
+    const response = await axios.post(
+      `${process.env.FASTAPI_URL}/whatsapp/webhook`,
+      req.body
+    );
+
+    console.log("✅ Resposta do FastAPI:", response.data);
+    res.json(response.data);
+  } catch (error) {
+    console.error("❌ Erro no webhook:", error);
+    res.status(500).send("Erro interno do servidor");
+  }
+});
+
+// Rota para enviar mensagens
+app.post("/send-message", async (req, res) => {
+  try {
+    const { to, message } = req.body;
+    console.log("\n📤 Enviando mensagem:");
+    console.log("Para:", to);
+    console.log("Mensagem:", message);
+
+    if (!client || !clientReady) {
+      throw new Error("Cliente WhatsApp não está pronto");
+    }
+
+    await client.sendText(to, message);
+    console.log("✅ Mensagem enviada com sucesso");
+    res.json({ status: "success" });
+  } catch (error) {
+    console.error("❌ Erro ao enviar mensagem:", error);
+    res.status(500).json({
+      status: "error",
+      message: error.message,
     });
+  }
 });
 
 // Log todas as requisições
