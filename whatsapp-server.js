@@ -88,11 +88,9 @@ async function initializeWhatsApp() {
 
         // Ajusta estrutura do payload conforme API Python espera
         const payload = {
-          type: "message",
-          data: {
+          message: {
             from: message.from.replace("@c.us", ""),
             text: message.body,
-            timestamp: message.timestamp,
           },
         };
 
@@ -106,6 +104,9 @@ async function initializeWhatsApp() {
             Accept: "application/json",
           },
           data: payload,
+          validateStatus: function (status) {
+            return status >= 200 && status < 500; // Aceita qualquer status 2xx-4xx
+          },
         });
 
         console.log("📥 Status da resposta:", response.status);
@@ -235,7 +236,7 @@ whatsappRouter.get("/qr", (req, res) => {
 });
 
 // Número do WhatsApp do bot (com código do país)
-const BOT_NUMBER = "5511953238980"; // Número que apareceu nos logs
+const BOT_NUMBER = "5511965905750";
 
 // Rota para usuários iniciarem conversa
 whatsappRouter.get("/conversar", (req, res) => {
