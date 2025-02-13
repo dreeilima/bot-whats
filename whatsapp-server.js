@@ -69,27 +69,51 @@ async function initializeWhatsApp() {
 
     // Configurar listener de mensagens
     client.onMessage(async (message) => {
-      if (message.isGroupMsg) return;
+      console.log("\n📨 Nova mensagem recebida:");
+      console.log("De:", message.from);
+      console.log("Texto:", message.body);
+      console.log("Tipo:", message.type);
+
+      if (message.isGroupMsg) {
+        console.log("❌ Mensagem de grupo ignorada");
+        return;
+      }
 
       try {
-        console.log("📩 Mensagem recebida:", message.body);
-
         // Processa a mensagem
         const response = await processMessage(message.body, message.from);
 
         // Envia resposta
         await client.sendText(message.from, response);
-        console.log("✅ Resposta enviada:", response);
+        console.log("\n✅ Mensagem processada:");
+        console.log("Para:", message.from);
+        console.log("Resposta:", response);
       } catch (error) {
-        console.error("❌ Erro ao processar mensagem:", error);
+        console.error("\n❌ Erro ao processar mensagem:");
+        console.error("De:", message.from);
+        console.error("Texto:", message.body);
+        console.error("Erro:", error);
         await client.sendText(
           message.from,
           "Desculpe, ocorreu um erro ao processar sua mensagem."
         );
       }
     });
+
+    // Adiciona listeners de eventos
+    client.onStateChange((state) => {
+      console.log("\n🔄 Estado do WhatsApp mudou:", state);
+    });
+
+    client.onIncomingCall(async (call) => {
+      console.log("\n📞 Chamada recebida - Rejeitando");
+      console.log("De:", call.peerJid);
+    });
   } catch (error) {
-    console.error("❌ Erro ao iniciar cliente:", error);
+    console.error("\n❌ Erro ao iniciar cliente WhatsApp:");
+    console.error("Tipo:", error.name);
+    console.error("Mensagem:", error.message);
+    console.error("Stack:", error.stack);
     setTimeout(initializeWhatsApp, 5000);
   }
 }
@@ -99,10 +123,19 @@ async function processMessage(text, from) {
   const userId = from.replace("@c.us", "");
 
   try {
+    console.log("\n🔄 Processando mensagem:");
+    console.log("Usuário:", userId);
+    console.log("Texto:", text);
+
     // Verifica se usuário existe
     const userResult = await pool.query(
       "SELECT * FROM users WHERE phone = $1",
       [userId]
+    );
+
+    console.log(
+      "👤 Status do usuário:",
+      userResult.rows.length ? "Existente" : "Novo"
     );
 
     // Se não existir, cria
@@ -111,9 +144,11 @@ async function processMessage(text, from) {
         "INSERT INTO users (phone, created_at) VALUES ($1, NOW())",
         [userId]
       );
+      console.log("✅ Novo usuário criado:", userId);
     }
 
     const command = text.toLowerCase().trim();
+    console.log("🔍 Comando identificado:", command);
 
     // Comandos básicos
     if (command === "oi" || command === "olá" || command === "ola") {
@@ -253,7 +288,11 @@ async function processMessage(text, from) {
     // Se não reconhecer o comando
     return "❓ Comando não reconhecido. Digite /ajuda para ver as opções disponíveis.";
   } catch (error) {
-    console.error("❌ Erro no banco:", error);
+    console.error("\n❌ Erro ao processar mensagem:");
+    console.error("Usuário:", userId);
+    console.error("Comando:", text);
+    console.error("Erro:", error.message);
+    console.error("Stack:", error.stack);
     return "Desculpe, ocorreu um erro ao processar sua solicitação.";
   }
 }
@@ -415,6 +454,7 @@ app.listen(PORT, () => {
 
 // Adiciona rota de status
 app.get("/status", (req, res) => {
+  console.log("📊 Status requisitado");
   res.json({
     status: "online",
     whatsapp: clientReady ? "connected" : "disconnected",
@@ -423,7 +463,9 @@ app.get("/status", (req, res) => {
 
 // Melhora rota do QR code
 app.get(["/qr", "/whatsapp/qr"], (req, res) => {
+  console.log("🔍 QR Code requisitado");
   if (clientReady) {
+    console.log("✅ WhatsApp já conectado");
     return res.json({
       status: "success",
       connected: true,
@@ -432,6 +474,7 @@ app.get(["/qr", "/whatsapp/qr"], (req, res) => {
   }
 
   if (currentQR) {
+    console.log("📱 QR Code disponível");
     return res.json({
       status: "success",
       connected: false,
@@ -439,10 +482,17 @@ app.get(["/qr", "/whatsapp/qr"], (req, res) => {
     });
   }
 
+  console.log("❌ QR Code não disponível");
   return res.json({
     status: "error",
     message: "QR Code ainda não disponível",
   });
+});
+
+// Log todas as requisições
+app.use((req, res, next) => {
+  console.log(`📥 ${req.method} ${req.path}`);
+  next();
 });
 
 // Tratamento de erros

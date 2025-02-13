@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 whatsapp_service = WhatsAppService()
 
 # Configura templates
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates"))
 
 class MessageRequest(BaseModel):
     phone: str
@@ -28,25 +28,32 @@ class WebhookRequest(BaseModel):
 @router.post("/webhook")  # Rota para receber mensagens do WhatsApp
 async def webhook(request: WebhookRequest):
     try:
-        logger.info(f"Mensagem recebida: {request.message}")
+        logger.info("\n📨 Webhook recebido:")
+        logger.info(f"Mensagem: {request.message}")
         
         # Extrai dados
         text = request.message.get("text", "")
         from_number = request.message.get("from", "")
         
+        logger.info(f"De: {from_number}")
+        logger.info(f"Texto: {text}")
+        
         if not text or not from_number:
+            logger.error("❌ Mensagem inválida - campos faltando")
             raise HTTPException(status_code=400, detail="Mensagem inválida")
             
-        logger.info(f"Processando mensagem de {from_number}: {text}")
-        
         # Processa a mensagem
         response = whatsapp_service.process_message(text)
+        
+        logger.info("\n✅ Mensagem processada:")
+        logger.info(f"Resposta: {response}")
         
         # Retorna resposta
         return {"message": response} if response else {"status": "success"}
         
     except Exception as e:
-        logger.error(f"Erro no webhook: {str(e)}")
+        logger.error("\n❌ Erro no webhook:")
+        logger.error(f"Erro: {str(e)}")
         logger.exception(e)
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -96,18 +103,30 @@ async def send_message(message: MessageRequest):
 @router.get("/admin/connect", response_class=HTMLResponse)
 async def admin_connect_page(request: Request):
     """Página administrativa para conectar o BOT ao WhatsApp"""
-    return templates.TemplateResponse(
-        "admin_connect.html",
-        {"request": request}
-    )
+    logger.info("🔐 Página admin solicitada")
+    try:
+        return templates.TemplateResponse(
+            "admin_connect.html",
+            {"request": request}
+        )
+    except Exception as e:
+        logger.error(f"❌ Erro ao renderizar página admin: {str(e)}")
+        logger.exception(e)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/connect", response_class=HTMLResponse)
 async def user_connect_page(request: Request):
     """Página para usuários se conectarem ao BOT"""
-    return templates.TemplateResponse(
-        "connect.html",
-        {
-            "request": request,
-            "whatsapp_number": WHATSAPP_NUMBER
-        }
-    ) 
+    logger.info("👤 Página usuário solicitada")
+    try:
+        return templates.TemplateResponse(
+            "connect.html",
+            {
+                "request": request,
+                "whatsapp_number": WHATSAPP_NUMBER
+            }
+        )
+    except Exception as e:
+        logger.error(f"❌ Erro ao renderizar página usuário: {str(e)}")
+        logger.exception(e)
+        raise HTTPException(status_code=500, detail=str(e)) 

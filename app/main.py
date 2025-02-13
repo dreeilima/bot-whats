@@ -6,12 +6,22 @@ todas funcionalidades do sistema.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 import logging
+import os
 from app.database import init_db
 
 # Configura logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Configura diretórios
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+
+# Cria diretório de templates se não existir
+os.makedirs(TEMPLATES_DIR, exist_ok=True)
 
 # Cria aplicação FastAPI
 app = FastAPI(
@@ -28,6 +38,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
+# Configura templates
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
 # Rota raiz redirecionando para docs
 @app.get("/", include_in_schema=False)
@@ -58,10 +72,13 @@ def health():
 @app.on_event("startup")
 async def startup():
     try:
+        logger.info("🚀 Iniciando aplicação...")
+        logger.info(f"📁 Templates dir: {TEMPLATES_DIR}")
         await init_db()
         logger.info("✅ Banco de dados inicializado")
     except Exception as e:
         logger.error(f"❌ Erro na inicialização: {e}")
+        logger.exception(e)
         raise
 
 if __name__ == "__main__":

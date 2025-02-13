@@ -18,22 +18,32 @@ class WhatsAppService:
     async def get_qr_code(self):
         """Obtém QR code do servidor Node.js"""
         try:
+            logger.info(f"🔍 Tentando obter QR code de {self.api_url}/whatsapp/qr")
             async with httpx.AsyncClient() as client:
                 response = await client.get(f"{self.api_url}/whatsapp/qr")
+                logger.info(f"✅ Resposta recebida: {response.status_code}")
                 data = response.json()
+                logger.info(f"📱 QR Code presente: {bool(data.get('qr'))}")
                 return data.get("qr")
         except Exception as e:
-            logger.error(f"Erro ao obter QR code: {str(e)}")
+            logger.error(f"❌ Erro ao obter QR code: {str(e)}")
+            logger.exception(e)
             return None
             
-    def send_message(self, to: str, message: str) -> bool:
+    async def send_message(self, to: str, message: str) -> bool:
         """Envia mensagem via servidor Node.js"""
         try:
+            logger.info(f"\n📤 Tentando enviar mensagem:")
+            logger.info(f"Para: {to}")
+            logger.info(f"Mensagem: {message}")
+
             # Remove formatação do número
             clean_number = to.replace("+", "").replace("-", "").replace(" ", "")
             if not clean_number.startswith("55"):
                 clean_number = "55" + clean_number
             
+            logger.info(f"Número formatado: {clean_number}")
+
             # Envia para o servidor Node.js
             response = requests.post(
                 f"{self.api_url}/send-message",
@@ -44,14 +54,21 @@ class WhatsAppService:
             )
             
             if response.status_code == 200:
-                logger.info(f"Mensagem enviada para {clean_number}")
+                logger.info(f"\n✅ Mensagem enviada com sucesso:")
+                logger.info(f"Para: {clean_number}")
+                logger.info(f"Status: {response.status_code}")
                 return True
             else:
-                logger.error(f"Erro ao enviar mensagem: {response.text}")
+                logger.error(f"\n❌ Erro ao enviar mensagem:")
+                logger.error(f"Para: {clean_number}")
+                logger.error(f"Status: {response.status_code}")
+                logger.error(f"Resposta: {response.text}")
                 return False
                 
         except Exception as e:
-            logger.error(f"❌ Erro ao enviar mensagem: {str(e)}")
+            logger.error(f"\n❌ Erro ao enviar mensagem:")
+            logger.error(f"Para: {to}")
+            logger.error(f"Erro: {str(e)}")
             logger.exception(e)
             return False
             
@@ -59,10 +76,13 @@ class WhatsAppService:
         """Processa mensagens recebidas"""
         try:
             text = text.lower().strip()
-            logger.info(f"Processando mensagem: '{text}'")
+            logger.info(f"\n📨 Processando mensagem:")
+            logger.info(f"Texto original: {text}")
+            logger.info(f"Texto processado: {text.lower().strip()}")
             
             # Comandos básicos
             if text in ["oi", "olá", "ola"]:
+                logger.info("✅ Comando identificado: Saudação")
                 return (
                     "👋 Olá! Eu sou o FinBot!\n\n"
                     "Para começar, envie:\n"
